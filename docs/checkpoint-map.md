@@ -406,8 +406,10 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-013 — Exact create/open/verify task control
 
-**Status:** Pending  
+**Status:** Ready
 **Depends on:** CP-011, CP-012
+
+**Implementation plan:** [`docs/checkpoints/cp-013-exact-task-control-implementation-plan.md`](checkpoints/cp-013-exact-task-control-implementation-plan.md)
 
 **Objective:** Create a new task or open one chosen existing task and independently verify the result.
 
