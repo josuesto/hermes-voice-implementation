@@ -34,7 +34,10 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) is Complete, and CP-003 (privacy and threat boundaries) and CP-004 (feasibility workspace and evidence harness) are Ready. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) is Complete. CP-003 (privacy and threat boundaries) and CP-004 (feasibility workspace and evidence harness) are Ready, with implementation plans prepared. Neither checkpoint is complete. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+
+- [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
+- [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
 
 See the [detailed product and build plan](docs/plan.md) and [checkpoint map](docs/checkpoint-map.md).
 

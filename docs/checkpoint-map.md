@@ -6,7 +6,7 @@ Canonical plan: [`docs/plan.md`](plan.md)
 Maintainer project index: private; not included in this repository
 
 > [!IMPORTANT] Mandatory implementation workflow
-> **Codex is the planner, technical reviewer, and checkpoint authority. Grok 4.6 in Cursor is the implementation/worker agent.** Before any checkpoint is implemented, Codex writes a checkpoint-specific implementation plan with scope, files, tests, evidence, and acceptance criteria. Grok 4.6 implements that plan without expanding its scope. Codex then independently inspects the changes, runs or verifies the required tests, and compares the evidence with the checkpoint criteria. If the work passes, Codex updates this checkpoint map and the Obsidian project note and plans the next checkpoint. If it fails or is incomplete, Codex writes a precise rework request for Grok and reviews the revision again. A worker report alone never completes a checkpoint, and a different implementation agent is not substituted without the user's approval.
+> **Codex is the planner, technical reviewer, and checkpoint authority. Grok 4.6 in Cursor is the implementation/worker agent.** Before any checkpoint is implemented, Codex writes a checkpoint-specific implementation plan with scope, files, tests, evidence, and acceptance criteria. Grok 4.6 implements that plan without expanding its scope. Codex then independently inspects the changes, runs or verifies the required tests, and compares the evidence with the checkpoint criteria. If the work passes, Codex updates this checkpoint map and the private maintainer project index, commits and pushes the accepted public-safe checkpoint outcome to `main`, and plans the next checkpoint. Private machine evidence, credentials, audio, transcripts, prompts, task content, and personal paths are excluded from the public commit. If the work fails or is incomplete, Codex writes a precise rework request for Grok and reviews the revision again; failed or unaccepted work is not represented as a completed-checkpoint commit. A worker report alone never completes a checkpoint, and a different implementation agent is not substituted without the user's approval.
 
 ## 1. How this map is used
 
@@ -43,6 +43,7 @@ Rules:
 5. Any scope or architecture change must be recorded as an Architecture Decision Record (ADR) and linked from this map.
 6. No full installer, public beta, or release work begins before Gate F0 passes.
 7. Audio, prompts, transcripts, Codex responses, credentials, and secrets must not appear in evidence bundles.
+8. After Codex accepts a checkpoint, publish one public-safe commit to `main` containing the accepted code/docs/tests and sanitized status/evidence references. Keep private evidence out of Git, verify the remote push, and record the commit hash in the private maintainer ledger.
 
 ## 2. Milestone dependency map
 
@@ -243,6 +244,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md`](checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - `docs/security/threat-model-v0.md`
 - `docs/security/data-flow-v0.md`
 - ADR for user-owned infrastructure and no mandatory shared service.
@@ -274,6 +276,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md`](checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
 - `work/feasibility/README.md`
 - `work/feasibility/codex-control/`
 - `work/feasibility/audio/`

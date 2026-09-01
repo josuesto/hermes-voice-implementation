@@ -1,12 +1,16 @@
 # Contributing
 
-Hermes Voice Implementation is currently a documentation-first feasibility project. There is no working release, CP-002 is still in progress, and production implementation remains blocked until the Phase Zero gate passes.
+Hermes Voice Implementation is currently a documentation-first feasibility project. There is no working release or production code. CP-002 is Complete, CP-003 and CP-004 are Ready, and production implementation remains blocked until the Phase Zero gate passes.
 
 ## Checkpoint workflow
 
 Work is organized by the permanent checkpoints in [docs/checkpoint-map.md](docs/checkpoint-map.md). Each change must identify its checkpoint, stay within that checkpoint's scope, and provide the required tests and reproducible evidence. A checkpoint is not passed because code or a worker report exists; its stated evidence and acceptance criteria must pass independent review.
 
 For the creator's current workflow, Codex plans and reviews checkpoint work, while Grok 4.6 in Cursor is the designated implementation worker. That designation describes the maintainer's workflow rather than a restriction on community participation. External contributors may propose documentation, research, evidence, or later implementation changes through normal GitHub issues and pull requests.
+
+## Accepted-checkpoint publication
+
+Codex completes its independent review before any checkpoint is represented as accepted. After acceptance, Codex makes one public-safe commit and pushes it to `main`, then verifies the remote result. That commit contains only the accepted public outcome and sanitized status or evidence references. Private machine evidence, credentials, audio, transcripts, prompts, task content, personal paths, and other sensitive material remain outside Git. Rejected or incomplete work is not published or described as a completed checkpoint.
 
 Before contributing:
 
