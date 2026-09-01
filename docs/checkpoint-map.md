@@ -330,20 +330,21 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Status:** Ready
 **Depends on:** CP-010
+**Execution state:** Not started. Publishing the implementation plan does not authorize Stage A, Stage B, or Stage C execution.
 
 **Objective:** Launch or focus Codex from a closed/background state and prove which Windows user session owns it.
 
 **Work:**
 
-- Launch Codex through the strongest candidate path.
-- Detect already-running, minimized, backgrounded, and crashed states.
-- Verify that the app belongs to the current unlocked user session.
-- Determine whether foreground focus is required for later controls.
-- Add launch timeout and cleanup behavior.
-- Confirm that the process can be observed without treating process start as UI readiness.
+- Stage A is non-mutating: build and synthetically test the harness, assess official interfaces, and prepare separate Stage B and Stage C approval packets without launching, focusing, minimizing, closing, or invoking Codex.
+- Stage B requires Codex review plus explicit user approval for the exact already-open reuse/focus/restore actions and visible disruption. It must not close a pre-existing instance.
+- Stage C requires separate approval after Stage B acceptance for the exact graceful-close and cold-relaunch sequence. It cannot rely on an active Codex review task while the app is closed; Cursor must save resumable evidence and the user returns after the final relaunch.
+- Evaluate the documented App Server boundary first without treating it as desktop launch proof, then Windows packaged activation, then separately approved payload-free base `codex://` only as fallback. Keyboard and vision/OCR remain out of scope.
+- Verify current unlocked Windows-session ownership, distinguish process start from `shell-ready`, add bounded timeouts, and fail closed on ambiguity or unsupported state.
 
 **Artifacts:**
 
+- Implementation plan: [`docs/checkpoints/cp-011-deterministic-codex-launch-session-control-implementation-plan.md`](checkpoints/cp-011-deterministic-codex-launch-session-control-implementation-plan.md)
 - Launch spike.
 - Launch-state matrix.
 - Timing and failure summary.
@@ -353,6 +354,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 - Ten consecutive trials from closed state reach a verified usable Codex UI.
 - Ten consecutive trials with Codex already open reuse the correct instance.
 - Locked/sleeping states fail clearly and never attempt unlock/wake behavior.
+- Stage B and Stage C execute only under their separate reviewed approvals, and no task/thread/Voice operation occurs.
 
 **Failure route:** Narrow supported launch conditions or find a stronger control path before proceeding.
 
@@ -1951,7 +1953,7 @@ The independent review remains private maintainer evidence and is not included i
 
 The next executable Phase Zero checkpoints are:
 
-1. **CP-011 — Deterministic Codex launch and session control** — Ready; not started
+1. **CP-011 — Deterministic Codex launch and session control** — Ready; not started; [implementation plan](checkpoints/cp-011-deterministic-codex-launch-session-control-implementation-plan.md) published with non-mutating Stage A plus separately approved Stage B reuse/focus and Stage C cold close/relaunch gates
 2. **CP-020 — Test virtual microphone and licensing inventory**
 3. **CP-030 — Mobile capability probe and representative browser inventory**
 4. **CP-040 — User-owned provider requirements and adapter contract**
