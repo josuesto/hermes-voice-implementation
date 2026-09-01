@@ -367,6 +367,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 **Status:** Ready
 **Depends on:** CP-010
 
+**Implementation plan:** [`docs/checkpoints/cp-012-recent-task-enumeration-implementation-plan.md`](checkpoints/cp-012-recent-task-enumeration-implementation-plan.md)
+
 **Objective:** List recent supported Codex tasks and distinguish them using stable identity rather than title alone.
 
 **Work:**
