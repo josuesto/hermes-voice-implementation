@@ -1,0 +1,49 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+credentials.*
+secrets.*
+
+# Node.js
+node_modules/
+.npm/
+.pnpm-store/
+coverage/
+dist/
+
+# Rust and general build output
+target/
+build/
+out/
+tmp/
+temp/
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Private/local feasibility evidence
+work/
+.local-evidence/
+private-evidence/
+diagnostics/
+captures/
+recordings/
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.webm
+*.pcap
+*.pcapng
