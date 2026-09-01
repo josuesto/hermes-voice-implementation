@@ -36,10 +36,14 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), and CP-004 (feasibility workspace and evidence harness) are Complete. After targeted private rework and independent acceptance, CP-004's repeatable private harness passed 28/28 tests twice with cleanup completed and rejects unsafe evidence before finalization. This validates the evidence harness only; it does not establish Codex-control, audio, phone-browser, or network feasibility.
 
-CP-010, CP-020, CP-030, and CP-040 are now Ready and may proceed independently. Their later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+CP-010, CP-020, CP-030, and CP-040 are now Ready, each with a prepared implementation plan, and may proceed independently. Their later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
+- [CP-010 implementation plan](docs/checkpoints/cp-010-codex-surface-discovery-implementation-plan.md)
+- [CP-020 implementation plan](docs/checkpoints/cp-020-virtual-microphone-inventory-implementation-plan.md)
+- [CP-030 implementation plan](docs/checkpoints/cp-030-mobile-capability-probe-implementation-plan.md)
+- [CP-040 implementation plan](docs/checkpoints/cp-040-provider-contract-implementation-plan.md)
 
 See the [detailed product and build plan](docs/plan.md) and [checkpoint map](docs/checkpoint-map.md).
 

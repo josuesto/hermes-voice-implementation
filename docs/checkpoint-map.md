@@ -309,6 +309,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-010-codex-surface-discovery-implementation-plan.md`](checkpoints/cp-010-codex-surface-discovery-implementation-plan.md)
 - Discovery script.
 - Sanitized capability report.
 - Initial Codex adapter capability matrix.
@@ -532,6 +533,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-020-virtual-microphone-inventory-implementation-plan.md`](checkpoints/cp-020-virtual-microphone-inventory-implementation-plan.md)
 - Audio-device inventory.
 - Virtual microphone option matrix.
 - Reversible setup and cleanup instructions.
@@ -757,6 +759,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-030-mobile-capability-probe-implementation-plan.md`](checkpoints/cp-030-mobile-capability-probe-implementation-plan.md)
 - Mobile capability probe page.
 - Sanitized capability report.
 
@@ -950,6 +953,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
+- Checkpoint implementation plan: [`docs/checkpoints/cp-040-provider-contract-implementation-plan.md`](checkpoints/cp-040-provider-contract-implementation-plan.md)
 - Provider contract schema.
 - Provider comparison matrix.
 - Candidate selection report.
