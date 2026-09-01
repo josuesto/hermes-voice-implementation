@@ -3,7 +3,7 @@
 Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working release or product implementation yet.** CP-002 is still in progress, Phase Zero has not passed, and production scaffolding remains blocked.
+> **Planning and feasibility only. There is no working product release or production code yet.** CP-002 is Complete, CP-003 and CP-004 are Ready, Phase Zero has not passed, and production scaffolding remains blocked.
 
 ## Intended flow
 
@@ -34,7 +34,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) is not complete. The public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) is Complete, and CP-003 (privacy and threat boundaries) and CP-004 (feasibility workspace and evidence harness) are Ready. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 See the [detailed product and build plan](docs/plan.md) and [checkpoint map](docs/checkpoint-map.md).
 

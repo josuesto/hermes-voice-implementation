@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002 in progress  
+Status: Planning and feasibility; CP-002 Complete; CP-003 and CP-004 Ready  
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -75,9 +75,9 @@ Four feasibility tracks may be investigated independently after the baseline is 
 |---|---|---|---|
 | CP-000 | Canonical product plan | Complete | — |
 | CP-001 | Living Obsidian project index | Complete | CP-000 |
-| CP-002 | Target hardware and software inventory | In progress — user decisions captured; targeted worker revision required | CP-001 |
-| CP-003 | Privacy, threat-boundary, and data-flow baseline | Pending | CP-002 |
-| CP-004 | Feasibility workspace and evidence harness | Pending | CP-002 |
+| CP-002 | Target hardware and software inventory | Complete | CP-001 |
+| CP-003 | Privacy, threat-boundary, and data-flow baseline | Ready | CP-002 |
+| CP-004 | Feasibility workspace and evidence harness | Ready | CP-002 |
 | CP-010 | Codex installation, process, package, and protocol discovery | Pending | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Pending | CP-010 |
 | CP-012 | Recent-task enumeration and stable task identity | Pending | CP-010 |
@@ -193,7 +193,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-002 — Target hardware and software inventory
 
-**Status:** In progress — user decisions captured; targeted worker revision required  
+**Status:** Complete  
 **Depends on:** CP-001
 
 **Objective:** Capture the exact environment the first implementation must support so compatibility is tested against facts.
@@ -211,15 +211,15 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Artifacts:**
 
-- `work/baseline/environment-inventory.md`
-- Sanitized machine-readable inventory where useful.
-- Independent review: `outputs/cp-002-independent-review.md`
+- Private maintainer environment inventory (not included in this repository).
+- Private machine-readable inventory (not included in this repository).
+- Private independent review (not included in this repository).
 
 **Evidence and pass criteria:**
 
 - Every required field is filled or explicitly marked unknown with a collection method.
 - No credential, token, serial number, phone number, public IP, or other unnecessary sensitive value is stored.
-- The Obsidian note links the inventory and states the capability-based mobile target and later representative-device test responsibility.
+- The private maintainer project index links the inventory and states the capability-based mobile target and later representative-device test responsibility.
 
 **Failure route:** Stop unsupported compatibility claims and gather any missing host/provider decisions; exact phone/browser evidence remains owned by CP-030.
 
@@ -227,7 +227,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-003 — Privacy, threat-boundary, and data-flow baseline
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-002
 
 **Objective:** Define what data each component may see, store, transmit, and trust before remote connectivity exists.
@@ -259,7 +259,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-004 — Feasibility workspace and evidence harness
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-002
 
 **Objective:** Create a disposable, reproducible place for spikes without prematurely scaffolding the production repository.
@@ -1928,16 +1928,13 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Unlocks:** Normal maintenance checkpoints created per release.
 
-## 17. Immediate next checkpoint
+## 17. Immediate next checkpoints
 
-The next executable checkpoint is **CP-002 — Target hardware and software inventory**.
+**CP-002 — Target hardware and software inventory is Complete.** Its accepted environment inventory, machine-readable inventory, worker report, and independent review remain private and are not included in this repository.
 
-It should be completed before technical spikes because the capability-based mobile target, exact Codex package/version, Hermes topology, Windows build, audio devices, and available user-owned provider resources determine what the feasibility tests must actually prove. Exact phone/browser versions are selected and measured in CP-030 and no longer block CP-002.
+The next executable checkpoints are now unblocked and may proceed in parallel:
 
-When CP-002 completes:
+1. **CP-003 — Privacy, threat-boundary, and data-flow baseline**
+2. **CP-004 — Feasibility workspace and evidence harness**
 
-1. Save the sanitized inventory artifact.
-2. Update CP-002 in the dashboard to Complete.
-3. Update the Obsidian project note's status ledger and capability-based mobile target.
-4. Unblock CP-003 and CP-004.
-5. Do not begin production repository scaffolding; continue into the four feasibility tracks.
+Codex must write a checkpoint-specific implementation plan for each before Grok 4.6 changes files. Production repository scaffolding remains blocked until Gate F0; the existing public repository is documentation-only.
