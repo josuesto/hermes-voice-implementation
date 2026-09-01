@@ -3,7 +3,7 @@
 Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working product release or production code yet.** CP-002 is Complete, CP-003 and CP-004 are Ready, Phase Zero has not passed, and production scaffolding remains blocked.
+> **Planning and feasibility only. There is no working product release or production code yet.** CP-002 and CP-003 are Complete, CP-004 is Ready and pending independent review, Phase Zero has not passed, and production scaffolding remains blocked.
 
 ## Intended flow
 
@@ -34,7 +34,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) is Complete. CP-003 (privacy and threat boundaries) and CP-004 (feasibility workspace and evidence harness) are Ready, with implementation plans prepared. Neither checkpoint is complete. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory) and CP-003 (privacy and threat boundaries) are Complete. CP-004 (feasibility workspace and evidence harness) remains Ready and pending independent review. CP-040 now has its CP-003 prerequisite but still waits on CP-004; CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)

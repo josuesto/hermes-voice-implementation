@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002 Complete; CP-003 and CP-004 Ready  
+Status: Planning and feasibility; CP-002 and CP-003 Complete; CP-004 Ready  
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -77,7 +77,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-000 | Canonical product plan | Complete | — |
 | CP-001 | Living Obsidian project index | Complete | CP-000 |
 | CP-002 | Target hardware and software inventory | Complete | CP-001 |
-| CP-003 | Privacy, threat-boundary, and data-flow baseline | Ready | CP-002 |
+| CP-003 | Privacy, threat-boundary, and data-flow baseline | Complete | CP-002 |
 | CP-004 | Feasibility workspace and evidence harness | Ready | CP-002 |
 | CP-010 | Codex installation, process, package, and protocol discovery | Pending | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Pending | CP-010 |
@@ -228,7 +228,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-003 — Privacy, threat-boundary, and data-flow baseline
 
-**Status:** Ready  
+**Status:** Complete  
 **Depends on:** CP-002
 
 **Objective:** Define what data each component may see, store, transmit, and trust before remote connectivity exists.
@@ -1935,9 +1935,16 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **CP-002 — Target hardware and software inventory is Complete.** Its accepted environment inventory, machine-readable inventory, worker report, and independent review remain private and are not included in this repository.
 
-The next executable checkpoints are now unblocked and may proceed in parallel:
+**CP-003 — Privacy, threat-boundary, and data-flow baseline is Complete.** Its accepted public artifacts are:
 
-1. **CP-003 — Privacy, threat-boundary, and data-flow baseline**
-2. **CP-004 — Feasibility workspace and evidence harness**
+- [`docs/security/threat-model-v0.md`](security/threat-model-v0.md)
+- [`docs/security/data-flow-v0.md`](security/data-flow-v0.md)
+- [`docs/adr/0001-user-owned-infrastructure-no-mandatory-shared-service.md`](adr/0001-user-owned-infrastructure-no-mandatory-shared-service.md)
 
-Codex must write a checkpoint-specific implementation plan for each before Grok 4.6 changes files. Production repository scaffolding remains blocked until Gate F0; the existing public repository is documentation-only.
+The independent review remains private maintainer evidence and is not included in this repository.
+
+The remaining executable baseline checkpoint is:
+
+1. **CP-004 — Feasibility workspace and evidence harness**
+
+CP-040 now has its CP-003 security-baseline prerequisite, but remains pending until CP-004 passes. CP-044 remains pending until CP-041 also passes. Production repository scaffolding remains blocked until Gate F0; the existing public repository is documentation-only.
