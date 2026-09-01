@@ -3,7 +3,7 @@
 Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, and CP-004 are Complete; CP-010, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
+> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, and CP-010 are Complete; CP-011, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
 
 ## Intended flow
 
@@ -34,9 +34,9 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), and CP-004 (feasibility workspace and evidence harness) are Complete. After targeted private rework and independent acceptance, CP-004's repeatable private harness passed 28/28 tests twice with cleanup completed and rejects unsafe evidence before finalization. This validates the evidence harness only; it does not establish Codex-control, audio, phone-browser, or network feasibility.
+The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), CP-004 (feasibility workspace and evidence harness), and CP-010 (Codex surface discovery) are Complete. After targeted private rework and independent acceptance, CP-010 established repeatable, privacy-safe detection of the installed package, normalized process/window identity, registered protocol, and bounded read-only UI Automation surface. The registered protocol was not invoked, and launch, task control, and Voice remain unproven.
 
-CP-010, CP-020, CP-030, and CP-040 are now Ready, each with a prepared implementation plan, and may proceed independently. Their later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+CP-011 is now Ready but has not started. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)

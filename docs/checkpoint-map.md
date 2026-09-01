@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002, CP-003, and CP-004 Complete; CP-010, CP-020, CP-030, and CP-040 Ready  
+Status: Planning and feasibility; CP-002, CP-003, CP-004, and CP-010 Complete; CP-011, CP-020, CP-030, and CP-040 Ready
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -79,8 +79,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-002 | Target hardware and software inventory | Complete | CP-001 |
 | CP-003 | Privacy, threat-boundary, and data-flow baseline | Complete | CP-002 |
 | CP-004 | Feasibility workspace and evidence harness | Complete | CP-002 |
-| CP-010 | Codex installation, process, package, and protocol discovery | Ready | CP-004 |
-| CP-011 | Deterministic Codex launch and session control | Pending | CP-010 |
+| CP-010 | Codex installation, process, package, and protocol discovery | Complete | CP-004 |
+| CP-011 | Deterministic Codex launch and session control | Ready | CP-010 |
 | CP-012 | Recent-task enumeration and stable task identity | Pending | CP-010 |
 | CP-013 | Exact create/open/verify task control | Pending | CP-011, CP-012 |
 | CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
@@ -152,7 +152,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-000 — Canonical product plan
 
-**Status:** Complete  
+**Status:** Complete
 **Depends on:** None
 
 **Objective:** Preserve the full product contract, architecture, phases, risks, and release definition before implementation begins.
@@ -293,7 +293,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-010 — Codex installation, process, package, and protocol discovery
 
-**Status:** Ready  
+**Status:** Complete
 **Depends on:** CP-004
 
 **Objective:** Build a verified map of the installed Codex desktop surface without assuming undocumented controls are stable.
@@ -319,6 +319,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 - The installed version and process/window identities are detected repeatedly.
 - Candidate control paths are ranked: supported API/deep link, native automation, UIA, keyboard, last-resort vision.
 - Each finding states whether it is documented, observed, or inferred.
+- Private repeatable discovery, schema validation, privacy filtering, hostile-input tests, and atomic-write tests pass independent review.
+- Protocol launch, task control, and Voice remain explicitly unproven and assigned to later checkpoints.
 
 **Failure route:** If Codex cannot be detected reliably, stop the automation track and document the supported manual prerequisite.
 
@@ -326,7 +328,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-011 — Deterministic Codex launch and session control
 
-**Status:** Pending  
+**Status:** Ready
 **Depends on:** CP-010
 
 **Objective:** Launch or focus Codex from a closed/background state and prove which Windows user session owns it.
@@ -1945,9 +1947,11 @@ The independent review remains private maintainer evidence and is not included i
 
 **CP-004 — Feasibility workspace and evidence harness is Complete after targeted private rework and independent acceptance.** Its repeatable private harness passed 28/28 tests twice with cleanup completed and rejects unsafe evidence before finalization. The harness tree, worker report, rework material, and reviews remain private and are not included in this repository. This result qualifies the evidence harness only; it does not establish Codex-control, audio, phone-browser, or network feasibility.
 
-The next executable Phase Zero checkpoints are unblocked and may proceed in parallel after Codex writes a checkpoint-specific implementation plan for each:
+**CP-010 — Codex installation, process, package, and protocol discovery is Complete after targeted private rework and independent acceptance.** Repeatable package/process/window/protocol identity, bounded read-only UI Automation discovery, schema validation, privacy filtering, hostile-input handling, and atomic evidence writes passed. Private machine evidence and review material are not included here. Protocol invocation was not performed, and launch, task control, and Voice are not proven.
 
-1. **CP-010 — Codex installation, process, package, and protocol discovery**
+The next executable Phase Zero checkpoints are:
+
+1. **CP-011 — Deterministic Codex launch and session control** — Ready; not started
 2. **CP-020 — Test virtual microphone and licensing inventory**
 3. **CP-030 — Mobile capability probe and representative browser inventory**
 4. **CP-040 — User-owned provider requirements and adapter contract**
