@@ -2,6 +2,8 @@
 
 Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
 
+The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
+
 > [!WARNING]
 > **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, CP-010, and CP-011 are Complete; CP-012, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
 
@@ -30,6 +32,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 - **Codex adapter:** opens or resumes the exact desktop task and controls Voice mode.
 - **Audio engine:** routes phone microphone audio into Codex and captures only Codex output.
 - **Embedded phone page:** provides a minimal browser call interface over WebRTC.
+- **Optional Discord adapter (post-v1):** lets a user-owned bot expose the same session in one authorized Discord voice call under Hermes control.
 - **User-owned networking:** serves the page and signaling through provider-owned HTTPS/STUN/TURN resources.
 
 ## Project status
@@ -48,6 +51,8 @@ CP-012 is now the next Ready Codex-control checkpoint; CP-013 still requires bot
 - [CP-040 implementation plan](docs/checkpoints/cp-040-provider-contract-implementation-plan.md)
 
 See the [detailed product and build plan](docs/plan.md) and [checkpoint map](docs/checkpoint-map.md).
+
+The optional transport boundary is recorded in [ADR 0002](docs/adr/0002-browser-first-optional-discord-voice-transport.md).
 
 ## Important compatibility warning
 

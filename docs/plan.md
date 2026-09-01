@@ -9,7 +9,7 @@ Working name: **Hermes Codex Voice Remote**
 
 ## 1. Product definition
 
-Hermes Codex Voice Remote is a free, open-source Hermes package that lets a person use the **real Codex Voice experience running on their own Windows PC** from a lightweight browser page on a phone.
+Hermes Codex Voice Remote is a free, open-source Hermes package that lets a person use the **real Codex Voice experience running on their own Windows PC** from a lightweight browser page on a phone. The browser is the first client transport. After the browser-first stable release, the same Codex-control and audio core may also expose an optional Discord voice adapter so an authorized Discord call can become the microphone-and-speaker endpoint without a web page.
 
 The intended interaction is:
 
@@ -30,7 +30,7 @@ This is not a new voice model, an imitation of Codex Voice, a remote-desktop pro
 
 - The project is free and open-source.
 - It is distributed as one product: one repository, one guided installation, and one Hermes capability.
-- Internally it remains modular: Hermes plugin, Windows companion, Codex adapter, audio engine, embedded phone page, provider adapters, installer, and diagnostics.
+- Internally it remains modular: Hermes plugin, Windows companion, Codex adapter, audio engine, client-transport adapters, embedded phone page, provider adapters, installer, and diagnostics.
 - Windows is the first supported platform. macOS is not promised until somebody can build and test it properly.
 - The PC running Codex must be powered on, awake, unlocked, and signed into its Windows user profile.
 - Codex must be installed and the user must sign into Codex directly. The package never requests, sees, or stores OpenAI credentials.
@@ -54,6 +54,7 @@ This is not a new voice model, an imitation of Codex Voice, a remote-desktop pro
 - A trusted phone should not require a fresh code for every short break. Trust duration is configurable; the recommended default is 30 days.
 - A short connection loss or a closed browser page receives a reconnect grace period. A five-minute break must not force re-pairing.
 - Explicitly ending the remote Voice session stops the audio bridge and Voice mode but preserves the Codex task and any ongoing work.
+- Client transports share one companion lifecycle and one audio/Codex core. Version one supports the browser transport. A later optional Discord transport must not fork task-selection, Voice-control, or cleanup behavior.
 
 ### 2.2 Explicit non-goals for the first release
 
@@ -68,6 +69,7 @@ This is not a new voice model, an imitation of Codex Voice, a remote-desktop pro
 - Saving recordings, transcripts, prompts, task content, or model responses in the bridge.
 - Supporting multiple simultaneous remote Voice sessions on one PC.
 - Supporting every tunnel or cloud provider in version one.
+- Shipping the optional Discord voice-call adapter in the browser-first stable release.
 - Promising native-call-style background or screen-lock continuity on every phone browser; this must be measured per supported browser family and version.
 
 ## 3. User experience
@@ -182,6 +184,7 @@ hermes-codex-voice-remote/
   codex-adapters/          Codex launch, task, and Voice-control adapters
   audio/                  Capture, virtual microphone, codec, and device logic
   web/                    Embedded phone page and pairing UI
+  discord/                Optional post-v1 Discord voice transport
   providers/              Tunnel, signaling, STUN, and TURN adapters
   installer/              Guided setup, upgrade, repair, and uninstall
   protocol/               Versioned IPC and remote-node schemas
@@ -314,7 +317,34 @@ Requirements:
 
 Mobile browsers may suspend microphone capture, audio playback, timers, or networking when backgrounded or when the screen locks. Phase Zero must measure this on representative supported browsers. Until a combination is proven, version one should document that the page must remain foregrounded and the screen awake during the call; reconnect after suspension remains required.
 
-### 5.6 User-owned networking
+### 5.6 Optional Discord voice adapter (post-v1)
+
+Discord is a second client/media transport over the same companion, Codex adapter, session state machine, and audio engine. It is not a separate agent, a replacement model, or a general Discord chatbot.
+
+The intended flow is:
+
+1. The owner asks Hermes to start a new or resumed Codex Voice session in a configured Discord voice channel.
+2. Hermes performs the existing task-selection and Voice-ready flow.
+3. An optional bot owned by that user joins one allowlisted server and voice channel.
+4. Audio from explicitly authorized Discord speakers is decoded and routed into the same Codex-only virtual microphone path.
+5. Process-specific Codex output is encoded and spoken by the bot into the call.
+6. Hermes remains the authoritative on/off control. Stopping the Discord bridge makes the bot leave, stops Codex Voice, releases audio resources, and preserves the underlying Codex task.
+
+Constraints:
+
+- Only one client transport—browser or Discord—may own a host's Codex Voice media session at a time.
+- The user creates and owns the Discord application and bot token; the project operates no shared Discord bot.
+- Installation requests only the permissions required to view/connect to the selected channel and speak. It must not request Administrator or unrelated text/message permissions.
+- Guild, channel, and permitted speaker identities are allowlisted. Audio from non-authorized participants is discarded before microphone injection unless the owner explicitly changes that policy.
+- The bot has a clear visible identity and the setup guide requires participants to be told that their live speech may be sent to Codex.
+- The adapter records no call audio, creates no extra transcript, and reads no text-channel content.
+- Bot credentials stay in operating-system-protected storage and never enter prompts, logs, diagnostics, or repository files.
+- The bot's own outbound Codex audio must never loop back into Codex input. Qualification must cover self-audio exclusion, jitter, packet loss, reconnect, clean leave, and abandoned-call cleanup.
+- Discord's current voice encryption requirements, including DAVE/E2EE compatibility, and the chosen voice library must be revalidated against official Discord documentation before implementation and before each supported release.
+
+This decision is recorded in [ADR 0002](adr/0002-browser-first-optional-discord-voice-transport.md). Discord work begins only after the browser-first stable release and has its own qualification gate.
+
+### 5.7 User-owned networking
 
 The networking design separates three concerns:
 
@@ -340,7 +370,7 @@ Version one should implement and test one reference provider well. Provider sele
 
 For a fully self-hosted server path, the project may later provide a small reference deployment containing a reverse proxy, signaling endpoint, and Coturn configuration. That deployment remains in the user's infrastructure.
 
-### 5.7 Same-host and separate-host Hermes
+### 5.8 Same-host and separate-host Hermes
 
 **Same-host mode** is implemented first:
 
@@ -591,6 +621,18 @@ Exit gate: release criteria below are satisfied without undocumented manual reco
 - Establish a compatibility policy for Codex UI changes.
 - Publish the first stable release only after the reference setup works end to end.
 
+### Phase Nine — optional Discord voice transport
+
+- Revalidate Discord's official voice connection, encryption, permission, and bot-application requirements.
+- Qualify a maintained Discord voice library with current DAVE/E2EE support rather than implementing the wire protocol casually.
+- Add a user-owned Discord application setup flow and operating-system-protected token storage.
+- Implement a transport adapter that reuses the production audio engine and Codex/Hermes lifecycle instead of duplicating them.
+- Add allowlisted server, voice-channel, and speaker policy; minimum permissions; visible participant disclosure; and one-session ownership.
+- Prove bidirectional audio, self-audio exclusion, reconnect, channel movement/refusal, Hermes start/stop, and task preservation.
+- Ship it as an optional module in the same repository/package family so browser-only users do not install or configure Discord components.
+
+Exit gate: an owner can ask Hermes to start or resume Codex Voice in one authorized Discord voice channel, converse through the bot with only authorized speakers forwarded, stop it cleanly through Hermes, and leave the Codex task intact without recording call content.
+
 ## 9. Test strategy
 
 ### 9.1 Automated tests
@@ -603,6 +645,7 @@ Exit gate: release criteria below are satisfied without undocumented manual reco
 - Embedded-page compatibility tests for supported browser syntax and APIs.
 - Installer upgrade, repair, and uninstall tests in clean Windows virtual machines where possible.
 - Codex-adapter tests against recorded semantic UI fixtures, with real-app smoke tests kept separate.
+- Optional Discord-adapter contract tests for authorization, voice-state transitions, codec boundaries, self-audio exclusion, and teardown.
 
 ### 9.2 Real-system matrix
 
@@ -616,6 +659,7 @@ Exit gate: release criteria below are satisfied without undocumented manual reco
 - Provider credential expiration, quota failure, tunnel failure, TURN failure, and DNS/TLS failure.
 - Codex update that changes automation selectors.
 - PC lock or sleep during a session: fail clearly and never attempt to unlock or wake it.
+- Post-v1 Discord qualification: allowed/disallowed guilds, channels, and speakers; join/leave/reconnect; packet loss; bot permission changes; current voice encryption; and outbound-audio loop prevention.
 
 ### 9.3 Quality targets to validate
 
@@ -658,6 +702,8 @@ Exit gate: release criteria below are satisfied without undocumented manual reco
 | Central-service creep | Conflicts with personal, user-owned design | No mandatory project-operated service; provider resources remain in each user's account |
 | Secret leakage | Provider or account compromise | Native credential storage; no secrets in prompts/logs; device keys; ephemeral credentials; diagnostics scrubbing |
 | Wrong task selected | Could expose or modify unrelated work | Stable task identity, disambiguation, act-and-verify, and zero-tolerance release testing |
+| Discord voice/API evolution | Encryption, gateway, or library changes may break the optional adapter | Keep Discord post-v1 and optional; use official documentation and a maintained DAVE-capable library; version-gate and fail closed |
+| Discord participant privacy or feedback loop | A shared call may forward unintended speakers or feed Codex output back into itself | Allowlist guild/channel/speakers, disclose the bot's role, discard unauthorized/self audio, never record, and qualify echo/teardown behavior |
 
 ## 12. Release definition of done
 
@@ -685,6 +731,8 @@ Release also requires:
 - Representative supported iPhone and Android browser combinations pass the documented compatibility tests, and unsupported combinations fail clearly.
 - Security and privacy documentation matches implementation.
 - No mandatory shared service operated by the project exists.
+
+The optional Discord adapter is explicitly outside this browser-first release definition. It has separate post-v1 checkpoints and may ship only after its own security, current-protocol, media, and lifecycle evidence passes.
 
 ## 13. Decisions intentionally deferred to Phase Zero evidence
 

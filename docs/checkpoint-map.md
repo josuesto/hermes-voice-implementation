@@ -66,6 +66,7 @@ flowchart TD
     Q --> RC{Release-candidate gate}
     RC --> BETA[Alpha and beta]
     BETA --> REL[Open-source stable release]
+    REL --> D[Optional Discord voice adapter]
 ```
 
 Four feasibility tracks may be investigated independently after the baseline is captured, but Gate F0 requires all four to pass.
@@ -147,6 +148,12 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-162 | Beta defect closure and support-boundary freeze | Blocked | CP-161 |
 | CP-163 | Open-source stable release | Blocked | CP-162 |
 | CP-164 | Post-release compatibility and maintenance policy | Blocked | CP-163 |
+| CP-170 | Discord transport contract and current-protocol qualification | Blocked | CP-163 |
+| CP-171 | User-owned Discord application and credential setup | Blocked | CP-170 |
+| CP-172 | Bidirectional Discord voice media proof | Blocked | CP-171 |
+| CP-173 | Hermes-controlled Discord session lifecycle | Blocked | CP-172 |
+| CP-174 | Discord authorization, privacy, and reliability qualification | Blocked | CP-173 |
+| CP-175 | Optional Discord adapter release | Blocked | CP-174 |
 
 ## 4. Baseline checkpoints
 
@@ -1939,7 +1946,113 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Unlocks:** Normal maintenance checkpoints created per release.
 
-## 17. Immediate next checkpoints
+## 17. Optional Discord voice adapter checkpoints
+
+These checkpoints implement [ADR 0002](adr/0002-browser-first-optional-discord-voice-transport.md). They are deliberately downstream of the browser-first stable release. They do not block CP-050, CP-118, CP-125, CP-155, or CP-163.
+
+### CP-170 — Discord transport contract and current-protocol qualification
+
+**Status:** Blocked
+**Depends on:** CP-163
+
+**Objective:** Freeze a post-v1 Discord transport boundary that reuses the production Codex, audio, lifecycle, and Hermes core and is compatible with Discord's current official voice requirements.
+
+**Work:** Recheck official Discord bot, voice, permission, Gateway, UDP, Opus, encryption, and DAVE requirements; evaluate maintained libraries for current receive/transmit support; define the client-transport interface; require one active browser-or-Discord media owner; define allowlisted guild/channel/speaker policy; specify participant disclosure and no-recording behavior.
+
+**Artifacts:** Current-protocol research note, library decision ADR, transport contract, threat-model/data-flow delta.
+
+**Pass criteria:** Official current requirements are cited; the selected library proves maintained DAVE/E2EE-capable bidirectional voice or the approach stops; the contract contains no duplicated task/Voice state machine; Discord remains optional and user-owned.
+
+**Failure route:** Keep Discord unsupported until a maintainable, policy-compatible bidirectional voice path exists. Do not weaken encryption or implement an unbounded custom protocol as a shortcut.
+
+**Unlocks:** CP-171.
+
+### CP-171 — User-owned Discord application and credential setup
+
+**Status:** Blocked
+**Depends on:** CP-170
+
+**Objective:** Let each user connect their own Discord application without exposing its bot token or granting unrelated permissions.
+
+**Work:** Guided Developer Portal instructions; bot installation link generation; minimum channel visibility/`CONNECT`/`SPEAK` permissions; server, channel, and speaker/role allowlists; operating-system-protected token storage; token rotation/revocation; setup verification that does not read text-channel history.
+
+**Artifacts:** Optional installer module, credential-store adapter, permission manifest, setup tests, redacted setup guide.
+
+**Pass criteria:** No project-operated bot exists; token never enters prompts/logs/files; Administrator and unrelated text permissions are absent; unauthorized guild/channel configuration fails closed; uninstall/disable can revoke local configuration safely.
+
+**Failure route:** Refuse Discord enablement and leave the browser transport unchanged.
+
+**Unlocks:** CP-172.
+
+### CP-172 — Bidirectional Discord voice media proof
+
+**Status:** Blocked
+**Depends on:** CP-171
+
+**Objective:** Prove that an authorized Discord voice channel can act as the live microphone and speaker endpoint for the existing Codex Voice audio engine.
+
+**Work:** Join one allowlisted voice channel; receive and decode authorized participant audio; discard non-authorized and bot-self audio; resample/jitter-buffer into the Codex virtual microphone path; capture only Codex application audio; encode/transmit to Discord; measure latency, packet loss, CPU, silence handling, and audio quality.
+
+**Artifacts:** Media adapter, sanitized measurements, codec/resampling tests, self-audio exclusion evidence, sustained-call report.
+
+**Pass criteria:** A sustained bidirectional call is understandable; no unrelated Windows audio, PC microphone, unauthorized participant, or bot-self audio reaches Codex; only Codex output reaches Discord; no audio or extra transcript is stored.
+
+**Failure route:** Repair codec/library/audio isolation or mark the adapter unsupported; do not fall back to system-wide capture or physical microphone input.
+
+**Unlocks:** CP-173.
+
+### CP-173 — Hermes-controlled Discord session lifecycle
+
+**Status:** Blocked
+**Depends on:** CP-172
+
+**Objective:** Make Hermes the deterministic on/off controller for new and resumed Codex Voice sessions in Discord.
+
+**Work:** Extend the existing typed Hermes tools with an optional Discord transport target; reuse exact new/resume selection and Voice-ready verification; join only after prerequisites pass; report ready only after both Voice and Discord media are ready; implement status, idempotent start, busy refusal, stop/leave, reconnect, orphan cleanup, and task preservation.
+
+**Artifacts:** Hermes skill/tool updates, lifecycle integration tests, new/resume call evidence, cleanup evidence.
+
+**Pass criteria:** Hermes can start or resume the correct task, attach one authorized Discord call, and stop it without closing/cancelling the Codex task; a concurrent browser/Discord ownership attempt fails clearly; Discord cannot turn itself on through an untrusted event.
+
+**Failure route:** Disable the Discord transport while preserving the stable browser path; route failures to the existing task, Voice, audio, or Discord adapter owner.
+
+**Unlocks:** CP-174.
+
+### CP-174 — Discord authorization, privacy, and reliability qualification
+
+**Status:** Blocked
+**Depends on:** CP-173
+
+**Objective:** Qualify the optional adapter against shared-call privacy risks and expected Discord/network failures.
+
+**Work:** Test unauthorized server/channel/speaker, role change, permission removal, token revocation, bot move/kick, channel deletion/full state, reconnect/resume, packet loss, duplicate start, companion/Codex/Discord restart, PC lock, abandoned call, self-audio loop, and participant-disclosure documentation. Scan diagnostics/caches/crash material for call content and credentials.
+
+**Artifacts:** Adversarial/reliability report, privacy scan, compatibility matrix, support and disclosure documentation.
+
+**Pass criteria:** Authorization fails closed; bot leaves on stop or unrecoverable failure; cleanup preserves the task; no call content/token appears in retained artifacts; supported Discord/library versions are explicit; participant disclosure is part of setup and use documentation.
+
+**Failure route:** Fix and repeat or narrow the supported adapter; do not ship with ambiguous speaker authorization, feedback, credential exposure, or abandoned connections.
+
+**Unlocks:** CP-175.
+
+### CP-175 — Optional Discord adapter release
+
+**Status:** Blocked
+**Depends on:** CP-174
+
+**Objective:** Publish the Discord voice adapter as an optional, separately configurable extension of the stable browser-first product.
+
+**Work:** Package optional components, publish checksums/SBOM and setup/security docs, document Discord dependency and support boundaries, verify clean install/upgrade/disable/uninstall, and tag a compatible adapter release.
+
+**Artifacts:** Optional release artifact, release notes, compatibility/support matrix, user-owned Discord setup guide.
+
+**Pass criteria:** Browser-only installations remain unaffected; published artifacts match the qualified commit; a new user can configure their own bot and complete a Hermes-controlled call without hidden manual steps; removal leaves neither credentials nor an active bot connection.
+
+**Failure route:** Keep the adapter pre-release or withdraw it without changing the stable browser release.
+
+**Unlocks:** Discord adapter maintenance checkpoints created per release.
+
+## 18. Immediate next checkpoints
 
 **CP-002 — Target hardware and software inventory is Complete.** Its accepted environment inventory, machine-readable inventory, worker report, and independent review remain private and are not included in this repository.
 
