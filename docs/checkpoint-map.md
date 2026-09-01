@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, and CP-011 Complete; CP-012, CP-020, CP-030, and CP-040 Ready
+Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 Complete; CP-013, CP-020, CP-030, and CP-040 Ready
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -82,8 +82,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-004 | Feasibility workspace and evidence harness | Complete | CP-002 |
 | CP-010 | Codex installation, process, package, and protocol discovery | Complete | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Complete | CP-010 |
-| CP-012 | Recent-task enumeration and stable task identity | Ready | CP-010 |
-| CP-013 | Exact create/open/verify task control | Pending | CP-011, CP-012 |
+| CP-012 | Recent-task enumeration and stable task identity | Complete | CP-010 |
+| CP-013 | Exact create/open/verify task control | Ready | CP-011, CP-012 |
 | CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
 | CP-015 | Fail-closed Codex adapter prototype | Pending | CP-014 |
 | CP-016 | Codex-control reliability qualification | Pending | CP-015 |
@@ -371,10 +371,12 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-012 — Recent-task enumeration and stable task identity
 
-**Status:** Ready
+**Status:** Complete
 **Depends on:** CP-010
 
 **Implementation plan:** [`docs/checkpoints/cp-012-recent-task-enumeration-implementation-plan.md`](checkpoints/cp-012-recent-task-enumeration-implementation-plan.md)
+
+**Accepted result:** Three approved App Server `thread/list` calls returned ten privacy-reduced task descriptors with stable identity, name, source, and order characteristics. The closed evidence report passed Draft 2020-12 validation and `privacy-policy-1.0.0`; no raw ID, name, task content, or task mutation was persisted.
 
 **Objective:** List recent supported Codex tasks and distinguish them using stable identity rather than title alone.
 
@@ -394,9 +396,9 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 **Evidence and pass criteria:**
 
-- The same task retains the same identity across enumeration and open operations.
-- Duplicate titles are unambiguous without exposing prompt contents.
-- No selection relies solely on row position or visible title.
+- The same task retains the same identity across three independent enumeration calls.
+- Duplicate-title-safe identity is available without persisting prompt contents or raw task metadata.
+- No later selection contract relies solely on row position or visible title; CP-013 owns open-and-verify proof.
 
 **Failure route:** If no stable task ID is accessible, require explicit user confirmation using title plus project/recency and document the residual risk; do not claim exact resume until verified.
 
@@ -2070,9 +2072,11 @@ The independent review remains private maintainer evidence and is not included i
 
 **CP-011 — Deterministic Codex launch and session control is Complete after separately approved live trials.** Ten already-open trials reused the correct current-session UI without duplicates. Ten cold-launch trials each reached a new shell-ready UI through packaged activation; trials 1-9 gracefully closed only their owned window and trial 10 left Codex open. No force-kill, protocol fallback, task/thread action, or Voice action occurred. Private machine evidence remains outside this repository.
 
+**CP-012 — Recent-task enumeration and stable task identity is Complete after separately approved live enumeration.** Three worker-owned App Server children each performed only initialization and one packed `thread/list` request. All three returned ten results with stable privacy-reduced identity, name, source, and order characteristics. The closed Draft 2020-12 report passed the shared privacy filter with zero findings; raw task IDs, names, paths, timestamps, prompts, turns, and content remain private and were not committed. No task or Voice mutation occurred.
+
 The next executable Phase Zero checkpoints are:
 
-1. **CP-012 — Recent-task enumeration and stable task identity** — Ready; the next Codex-control checkpoint
+1. **CP-013 — Exact create/open/verify task control** — Ready; now unlocked by CP-011 and CP-012
 2. **CP-020 — Test virtual microphone and licensing inventory**
 3. **CP-030 — Mobile capability probe and representative browser inventory**
 4. **CP-040 — User-owned provider requirements and adapter contract**
