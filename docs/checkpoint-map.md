@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 Complete; CP-013, CP-020, CP-030, and CP-040 Ready
+Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 Complete; CP-013 In progress with Stage A accepted; CP-020, CP-030, and CP-040 Ready
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -83,7 +83,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-010 | Codex installation, process, package, and protocol discovery | Complete | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Complete | CP-010 |
 | CP-012 | Recent-task enumeration and stable task identity | Complete | CP-010 |
-| CP-013 | Exact create/open/verify task control | Ready | CP-011, CP-012 |
+| CP-013 | Exact create/open/verify task control | In progress — Stage A accepted; Stage B approval required | CP-011, CP-012 |
 | CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
 | CP-015 | Fail-closed Codex adapter prototype | Pending | CP-014 |
 | CP-016 | Codex-control reliability qualification | Pending | CP-015 |
@@ -406,10 +406,12 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-013 — Exact create/open/verify task control
 
-**Status:** Ready
+**Status:** In progress — Stage A accepted; Stage B approval required
 **Depends on:** CP-011, CP-012
 
 **Implementation plan:** [`docs/checkpoints/cp-013-exact-task-control-implementation-plan.md`](checkpoints/cp-013-exact-task-control-implementation-plan.md)
+
+**Accepted progress:** Stage A established the private synthetic harness, closed final-evidence schema, and a fail-closed read-only desktop-correlation observer. Stage B and Stage C remain separately approval-gated; no live task action is claimed.
 
 **Objective:** Create a new task or open one chosen existing task and independently verify the result.
 
@@ -2076,9 +2078,11 @@ The independent review remains private maintainer evidence and is not included i
 
 **CP-012 — Recent-task enumeration and stable task identity is Complete after separately approved live enumeration.** Three worker-owned App Server children each performed only initialization and one packed `thread/list` request. All three returned ten results with stable privacy-reduced identity, name, source, and order characteristics. The closed Draft 2020-12 report passed the shared privacy filter with zero findings; raw task IDs, names, paths, timestamps, prompts, turns, and content remain private and were not committed. No task or Voice mutation occurred.
 
+**CP-013 Stage A is accepted.** The private 61-case synthetic harness passed, live-mode desktop correlation is read-only and isolated from fixtures, and the closed final schema requires verified semantic identity plus completed owned cleanup. No live task action or Voice action has occurred. Stage B awaits explicit user approval.
+
 The next executable Phase Zero checkpoints are:
 
-1. **CP-013 — Exact create/open/verify task control** — Ready; now unlocked by CP-011 and CP-012
+1. **CP-013 — Exact create/open/verify task control** — In progress; Stage B approval required
 2. **CP-020 — Test virtual microphone and licensing inventory**
 3. **CP-030 — Mobile capability probe and representative browser inventory**
 4. **CP-040 — User-owned provider requirements and adapter contract**

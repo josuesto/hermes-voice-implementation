@@ -5,7 +5,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 are Complete; CP-013, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
+> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 are Complete. CP-013 is In progress with Stage A accepted and live Stage B awaiting explicit approval; CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
 
 ## Intended flow
 
@@ -39,7 +39,7 @@ The browser is the first release transport. A post-v1 optional Discord adapter i
 
 The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), CP-004 (feasibility workspace and evidence harness), CP-010 (Codex surface discovery), CP-011 (deterministic Codex launch and session control), and CP-012 (recent-task enumeration and stable identity) are Complete. CP-011 established packaged activation for reliable cold launch and already-open reuse on an active, unlocked, same-owner Windows session. CP-012 established privacy-reduced enumeration through three stable App Server `thread/list` calls without opening or mutating a task.
 
-CP-013 is now the next Ready Codex-control checkpoint. It must prove that a selected stable identity can be created/opened and independently verified before Voice. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+CP-013 Stage A is accepted: its private synthetic harness and fail-closed, read-only desktop-correlation contract passed review. CP-013 remains In progress because the separately approved live resume and create trials have not run; Stage B is awaiting explicit user approval. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
