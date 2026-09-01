@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002 and CP-003 Complete; CP-004 Ready  
+Status: Planning and feasibility; CP-002, CP-003, and CP-004 Complete; CP-010, CP-020, CP-030, and CP-040 Ready  
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -78,28 +78,28 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-001 | Living Obsidian project index | Complete | CP-000 |
 | CP-002 | Target hardware and software inventory | Complete | CP-001 |
 | CP-003 | Privacy, threat-boundary, and data-flow baseline | Complete | CP-002 |
-| CP-004 | Feasibility workspace and evidence harness | Ready | CP-002 |
-| CP-010 | Codex installation, process, package, and protocol discovery | Pending | CP-004 |
+| CP-004 | Feasibility workspace and evidence harness | Complete | CP-002 |
+| CP-010 | Codex installation, process, package, and protocol discovery | Ready | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Pending | CP-010 |
 | CP-012 | Recent-task enumeration and stable task identity | Pending | CP-010 |
 | CP-013 | Exact create/open/verify task control | Pending | CP-011, CP-012 |
 | CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
 | CP-015 | Fail-closed Codex adapter prototype | Pending | CP-014 |
 | CP-016 | Codex-control reliability qualification | Pending | CP-015 |
-| CP-020 | Test virtual microphone and licensing inventory | Pending | CP-004 |
+| CP-020 | Test virtual microphone and licensing inventory | Ready | CP-004 |
 | CP-021 | Phone/sample PCM injection proof | Pending | CP-020 |
 | CP-022 | Process-specific Codex output capture proof | Pending | CP-020 |
 | CP-023 | Full-duplex local audio graph | Pending | CP-021, CP-022 |
 | CP-024 | Audio isolation and no-fallback enforcement | Pending | CP-023 |
 | CP-025 | Audio crash recovery and setting restoration | Pending | CP-024 |
 | CP-026 | Windows-audio qualification and production-component ADR | Pending | CP-025 |
-| CP-030 | Mobile capability probe and representative browser inventory | Pending | CP-004 |
+| CP-030 | Mobile capability probe and representative browser inventory | Ready | CP-004 |
 | CP-031 | Minimal secure phone page and microphone permission | Pending | CP-030 |
 | CP-032 | Phone-browser-to-PC LAN WebRTC proof | Pending | CP-031, CP-023 |
 | CP-033 | Minimal call controls and accessible interaction | Pending | CP-032 |
 | CP-034 | Phone interruption, routing, background, and network matrix | Pending | CP-033 |
 | CP-035 | Mobile-browser qualification and support-floor ADR | Pending | CP-034 |
-| CP-040 | User-owned provider requirements and adapter contract | Pending | CP-003, CP-004 |
+| CP-040 | User-owned provider requirements and adapter contract | Ready | CP-003, CP-004 |
 | CP-041 | Reference provider and stable HTTPS route proof | Pending | CP-040 |
 | CP-042 | Signaling plus direct ICE/STUN proof | Pending | CP-041, CP-032 |
 | CP-043 | Forced TURN relay proof | Pending | CP-042 |
@@ -261,7 +261,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-004 — Feasibility workspace and evidence harness
 
-**Status:** Ready  
+**Status:** Complete  
 **Depends on:** CP-002
 
 **Objective:** Create a disposable, reproducible place for spikes without prematurely scaffolding the production repository.
@@ -277,11 +277,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 **Artifacts:**
 
 - Checkpoint implementation plan: [`docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md`](checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
-- `work/feasibility/README.md`
-- `work/feasibility/codex-control/`
-- `work/feasibility/audio/`
-- `work/feasibility/phone/`
-- `work/feasibility/network/`
+- Private maintainer feasibility harness and track directories (not included in this repository).
 
 **Evidence and pass criteria:**
 
@@ -297,7 +293,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-010 — Codex installation, process, package, and protocol discovery
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-004
 
 **Objective:** Build a verified map of the installed Codex desktop surface without assuming undocumented controls are stable.
@@ -522,7 +518,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-020 — Test virtual microphone and licensing inventory
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-004
 
 **Objective:** Select a temporary feasibility component and enumerate viable production microphone-injection choices without prematurely committing to a driver.
@@ -746,7 +742,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-030 — Mobile capability probe and representative browser inventory
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-004
 
 **Objective:** Establish an evidence-based, capability-driven mobile compatibility target that covers broadly compatible phones without promising every handset.
@@ -939,7 +935,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-040 — User-owned provider requirements and adapter contract
 
-**Status:** Pending  
+**Status:** Ready  
 **Depends on:** CP-003, CP-004
 
 **Objective:** Define a provider-neutral contract while committing version one to one tested reference path.
@@ -1943,8 +1939,13 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 The independent review remains private maintainer evidence and is not included in this repository.
 
-The remaining executable baseline checkpoint is:
+**CP-004 — Feasibility workspace and evidence harness is Complete after targeted private rework and independent acceptance.** Its repeatable private harness passed 28/28 tests twice with cleanup completed and rejects unsafe evidence before finalization. The harness tree, worker report, rework material, and reviews remain private and are not included in this repository. This result qualifies the evidence harness only; it does not establish Codex-control, audio, phone-browser, or network feasibility.
 
-1. **CP-004 — Feasibility workspace and evidence harness**
+The next executable Phase Zero checkpoints are unblocked and may proceed in parallel after Codex writes a checkpoint-specific implementation plan for each:
 
-CP-040 now has its CP-003 security-baseline prerequisite, but remains pending until CP-004 passes. CP-044 remains pending until CP-041 also passes. Production repository scaffolding remains blocked until Gate F0; the existing public repository is documentation-only.
+1. **CP-010 — Codex installation, process, package, and protocol discovery**
+2. **CP-020 — Test virtual microphone and licensing inventory**
+3. **CP-030 — Mobile capability probe and representative browser inventory**
+4. **CP-040 — User-owned provider requirements and adapter contract**
+
+Their later dependents remain Pending. CP-044 remains Pending until CP-041 passes. Production repository scaffolding remains blocked until Gate F0; the existing public repository is documentation-only.
