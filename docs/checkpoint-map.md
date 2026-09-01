@@ -1,7 +1,7 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002, CP-003, CP-004, and CP-010 Complete; CP-011, CP-020, CP-030, and CP-040 Ready
+Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, and CP-011 Complete; CP-012, CP-020, CP-030, and CP-040 Ready
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
 
@@ -80,8 +80,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-003 | Privacy, threat-boundary, and data-flow baseline | Complete | CP-002 |
 | CP-004 | Feasibility workspace and evidence harness | Complete | CP-002 |
 | CP-010 | Codex installation, process, package, and protocol discovery | Complete | CP-004 |
-| CP-011 | Deterministic Codex launch and session control | Ready | CP-010 |
-| CP-012 | Recent-task enumeration and stable task identity | Pending | CP-010 |
+| CP-011 | Deterministic Codex launch and session control | Complete | CP-010 |
+| CP-012 | Recent-task enumeration and stable task identity | Ready | CP-010 |
 | CP-013 | Exact create/open/verify task control | Pending | CP-011, CP-012 |
 | CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
 | CP-015 | Fail-closed Codex adapter prototype | Pending | CP-014 |
@@ -328,9 +328,9 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-011 — Deterministic Codex launch and session control
 
-**Status:** Ready
+**Status:** Complete
 **Depends on:** CP-010
-**Execution state:** Not started. Publishing the implementation plan does not authorize Stage A, Stage B, or Stage C execution.
+**Execution state:** Accepted after non-mutating harness review and separately approved Stage B and Stage C live trials.
 
 **Objective:** Launch or focus Codex from a closed/background state and prove which Windows user session owns it.
 
@@ -355,6 +355,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 - Ten consecutive trials with Codex already open reuse the correct instance.
 - Locked/sleeping states fail clearly and never attempt unlock/wake behavior.
 - Stage B and Stage C execute only under their separate reviewed approvals, and no task/thread/Voice operation occurs.
+- Ten final already-open trials reused the correct current-session UI without duplicates; ten final cold-launch trials each reached a new shell-ready UI through packaged activation.
+- Cold trials 1-9 gracefully closed only their trial-owned window; trial 10 left Codex open. No force-kill or protocol fallback occurred.
 
 **Failure route:** Narrow supported launch conditions or find a stronger control path before proceeding.
 
@@ -362,7 +364,7 @@ Four feasibility tracks may be investigated independently after the baseline is 
 
 ### CP-012 — Recent-task enumeration and stable task identity
 
-**Status:** Pending  
+**Status:** Ready
 **Depends on:** CP-010
 
 **Objective:** List recent supported Codex tasks and distinguish them using stable identity rather than title alone.
@@ -1951,9 +1953,11 @@ The independent review remains private maintainer evidence and is not included i
 
 **CP-010 — Codex installation, process, package, and protocol discovery is Complete after targeted private rework and independent acceptance.** Repeatable package/process/window/protocol identity, bounded read-only UI Automation discovery, schema validation, privacy filtering, hostile-input handling, and atomic evidence writes passed. Private machine evidence and review material are not included here. Protocol invocation was not performed, and launch, task control, and Voice are not proven.
 
+**CP-011 — Deterministic Codex launch and session control is Complete after separately approved live trials.** Ten already-open trials reused the correct current-session UI without duplicates. Ten cold-launch trials each reached a new shell-ready UI through packaged activation; trials 1-9 gracefully closed only their owned window and trial 10 left Codex open. No force-kill, protocol fallback, task/thread action, or Voice action occurred. Private machine evidence remains outside this repository.
+
 The next executable Phase Zero checkpoints are:
 
-1. **CP-011 — Deterministic Codex launch and session control** — Ready; not started; [implementation plan](checkpoints/cp-011-deterministic-codex-launch-session-control-implementation-plan.md) published with non-mutating Stage A plus separately approved Stage B reuse/focus and Stage C cold close/relaunch gates
+1. **CP-012 — Recent-task enumeration and stable task identity** — Ready; the next Codex-control checkpoint
 2. **CP-020 — Test virtual microphone and licensing inventory**
 3. **CP-030 — Mobile capability probe and representative browser inventory**
 4. **CP-040 — User-owned provider requirements and adapter contract**

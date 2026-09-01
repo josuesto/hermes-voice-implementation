@@ -3,7 +3,7 @@
 Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, and CP-010 are Complete; CP-011, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
+> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, CP-010, and CP-011 are Complete; CP-012, CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
 
 ## Intended flow
 
@@ -34,9 +34,9 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), CP-004 (feasibility workspace and evidence harness), and CP-010 (Codex surface discovery) are Complete. After targeted private rework and independent acceptance, CP-010 established repeatable, privacy-safe detection of the installed package, normalized process/window identity, registered protocol, and bounded read-only UI Automation surface. The registered protocol was not invoked, and launch, task control, and Voice remain unproven.
+The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), CP-004 (feasibility workspace and evidence harness), CP-010 (Codex surface discovery), and CP-011 (deterministic Codex launch and session control) are Complete. CP-011 established packaged activation for reliable cold launch and already-open reuse on an active, unlocked, same-owner Windows session. It did not invoke the registered protocol or touch task/thread or Voice state.
 
-CP-011 is now Ready but has not started. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+CP-012 is now the next Ready Codex-control checkpoint; CP-013 still requires both CP-011 and CP-012. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
