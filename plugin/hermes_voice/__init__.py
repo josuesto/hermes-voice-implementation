@@ -24,13 +24,13 @@ def register(ctx) -> None:
             "codex_voice_start",
             START_SCHEMA,
             handle_codex_voice_start,
-            "When the user asks to start or resume Codex Voice on this Windows PC, preflight and launch Codex. Returns starting. Then use computer_use for Codex UI, then codex_voice_confirm.",
+            "When the user asks to start or resume Codex Voice, preflight and launch Codex, then start the configured physical-mic audio route. Ask for model and effort, use computer_use, then confirm.",
         ),
         (
             "codex_voice_confirm",
             CONFIRM_SCHEMA,
             handle_codex_voice_confirm,
-            "After computer_use shows Voice active, record ready. CABLE Output is configured once in Codex Settings.",
+            "After computer_use shows Voice active and verifies the chosen model and effort after startup, record ready.",
         ),
         (
             "codex_voice_status",
@@ -42,7 +42,7 @@ def register(ctx) -> None:
             "codex_voice_stop",
             STOP_SCHEMA,
             handle_codex_voice_stop,
-            "After computer_use ended Codex Voice, clear companion state and leave the Codex task open.",
+            "After computer_use ended Codex Voice, stop the audio route, clear state, and leave the Codex task open.",
         ),
     ):
         ctx.register_tool(

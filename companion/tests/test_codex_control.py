@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 from companion.codex_control import (  # noqa: E402
     CodexVoiceController,
+    StaticAudioRouter,
     StaticCable,
     StaticGuard,
     StaticLauncher,
@@ -26,14 +27,18 @@ INDEXED_SKILL = ROOT / "skills" / "hermes_voice" / "SKILL.md"
 PLUGIN_SKILL = ROOT / "plugin" / "hermes_voice" / "SKILL.md"
 
 
-def _controller(**ui_kw) -> tuple[CodexVoiceController, StaticUi, StaticLauncher]:
+def _controller(
+    router: StaticAudioRouter | None = None, **ui_kw
+) -> tuple[CodexVoiceController, StaticUi, StaticLauncher]:
     ui = StaticUi(**ui_kw)
     launcher = StaticLauncher(present=True)
+    router = router or StaticAudioRouter()
     ctrl = CodexVoiceController(
         guard=StaticGuard(),
         launcher=launcher,
         ui=ui,
         cable=StaticCable(True),
+        router=router,
         sleep=lambda _s: None,
         ready_wait_s=0.0,
         stop_wait_s=0.0,
@@ -42,7 +47,9 @@ def _controller(**ui_kw) -> tuple[CodexVoiceController, StaticUi, StaticLauncher
 
 
 def _confirm(ctrl: CodexVoiceController) -> dict:
-    return ctrl.confirm({"voice_visible": True})
+    return ctrl.confirm(
+        {"voice_visible": True, "model_verified": True, "effort_verified": True}
+    )
 
 
 class StartStatusStopTests(unittest.TestCase):
@@ -79,7 +86,9 @@ class StartStatusStopTests(unittest.TestCase):
     def test_false_voice_confirmation_keeps_starting(self):
         ctrl, ui, _launcher = _controller()
         ctrl.start({"mode": "new"})
-        result = ctrl.confirm({"voice_visible": False})
+        result = ctrl.confirm(
+            {"voice_visible": False, "model_verified": True, "effort_verified": True}
+        )
         self.assertEqual(result["error"], "voice_not_ready")
         self.assertEqual(result["status"], "starting")
         self.assertFalse(ctrl.session.owned)
@@ -240,7 +249,9 @@ class StartStatusStopTests(unittest.TestCase):
         self.assertEqual(ui.new_task_calls, 0)
         self.assertNotEqual(started["status"], "ready")
         self.assertNotEqual(started.get("error"), "voice_not_ready")
-        denied = ctrl.confirm({"voice_visible": False})
+        denied = ctrl.confirm(
+            {"voice_visible": False, "model_verified": True, "effort_verified": True}
+        )
         self.assertEqual(denied["status"], "starting")
         self.assertEqual(denied["error"], "voice_not_ready")
         self.assertFalse(ctrl.session.owned)
@@ -257,7 +268,9 @@ class StartStatusStopTests(unittest.TestCase):
     def test_confirm_requires_visible_voice(self):
         ctrl, _ui, _launcher = _controller()
         ctrl.start({"mode": "current"})
-        missing_voice = ctrl.confirm({"voice_visible": False})
+        missing_voice = ctrl.confirm(
+            {"voice_visible": False, "model_verified": True, "effort_verified": True}
+        )
         self.assertEqual(missing_voice["error"], "voice_not_ready")
         self.assertEqual(missing_voice["status"], "starting")
         self.assertFalse(ctrl.session.owned)
@@ -279,6 +292,45 @@ class StartStatusStopTests(unittest.TestCase):
         self.assertEqual(ui.voice_stop_calls, 0)
         self.assertEqual(ui.close_task_calls, 0)
         self.assertEqual(ui.kill_calls, 0)
+
+    def test_start_and_stop_own_audio_router(self):
+        router = StaticAudioRouter()
+        ctrl, _ui, _launcher = _controller(router=router)
+        self.assertEqual(ctrl.start({"mode": "new"})["status"], "starting")
+        self.assertTrue(router.running)
+        self.assertEqual(router.start_calls, 1)
+        self.assertEqual(_confirm(ctrl)["status"], "ready")
+        self.assertEqual(ctrl.stop()["status"], "inactive")
+        self.assertFalse(router.running)
+        self.assertEqual(router.stop_calls, 1)
+
+    def test_router_start_failure_fails_closed(self):
+        router = StaticAudioRouter(start_ok=False)
+        ctrl, _ui, _launcher = _controller(router=router)
+        result = ctrl.start({"mode": "current"})
+        self.assertEqual(result, {"ok": False, "status": "failed", "error": "audio_bridge_failed"})
+
+    def test_status_detects_router_drop(self):
+        router = StaticAudioRouter()
+        ctrl, _ui, _launcher = _controller(router=router)
+        ctrl.start({"mode": "current"})
+        _confirm(ctrl)
+        router.running = False
+        self.assertEqual(ctrl.status()["error"], "audio_bridge_failed")
+
+    def test_confirm_requires_model_and_effort_verification(self):
+        ctrl, _ui, _launcher = _controller()
+        ctrl.start({"mode": "new"})
+        missing_model = ctrl.confirm(
+            {"voice_visible": True, "model_verified": False, "effort_verified": True}
+        )
+        self.assertEqual(missing_model["error"], "model_not_verified")
+        self.assertEqual(missing_model["status"], "starting")
+        missing_effort = ctrl.confirm(
+            {"voice_visible": True, "model_verified": True, "effort_verified": False}
+        )
+        self.assertEqual(missing_effort["error"], "effort_not_verified")
+        self.assertEqual(missing_effort["status"], "starting")
 
 
 class PluginToolTests(unittest.TestCase):
@@ -309,7 +361,9 @@ class PluginToolTests(unittest.TestCase):
         set_controller(ctrl)
         started = json.loads(handle_codex_voice_start({"mode": "new"}))
         confirmed = json.loads(
-            handle_codex_voice_confirm({"voice_visible": True})
+            handle_codex_voice_confirm(
+                {"voice_visible": True, "model_verified": True, "effort_verified": True}
+            )
         )
         status = json.loads(handle_codex_voice_status({}))
         stopped = json.loads(handle_codex_voice_stop({}))
@@ -352,15 +406,16 @@ class PluginToolTests(unittest.TestCase):
         self.assertEqual(set(params["properties"]["mode"]["enum"]), {"new", "current"})
         self.assertEqual(params.get("additionalProperties"), False)
 
-    def test_confirm_schema_requires_visible_voice(self):
+    def test_confirm_schema_requires_voice_model_and_effort(self):
         plugin_root = ROOT / "plugin" / "hermes_voice"
         if str(plugin_root.parent) not in sys.path:
             sys.path.insert(0, str(plugin_root.parent))
         from hermes_voice.tools import CONFIRM_SCHEMA
 
         params = CONFIRM_SCHEMA["parameters"]
-        self.assertEqual(set(params["properties"]), {"voice_visible"})
-        self.assertEqual(set(params["required"]), {"voice_visible"})
+        expected = {"voice_visible", "model_verified", "effort_verified"}
+        self.assertEqual(set(params["properties"]), expected)
+        self.assertEqual(set(params["required"]), expected)
 
     def test_skill_infer_ask_list_select_rules(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")
@@ -385,6 +440,14 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("slash command", lowered)
         self.assertIn("one-time setup", lowered)
         self.assertIn("do not attempt per-call device selection", lowered)
+
+    def test_skill_requires_explicit_model_and_effort_each_start(self):
+        text = INDEXED_SKILL.read_text(encoding="utf-8").lower()
+        self.assertIn("every voice start", text)
+        self.assertIn("ask the user", text)
+        self.assertIn("model_verified=true", text)
+        self.assertIn("effort_verified=true", text)
+        self.assertIn("re-check", text)
 
     def test_indexed_skill_matches_plugin_skill(self):
         indexed = INDEXED_SKILL.read_text(encoding="utf-8")

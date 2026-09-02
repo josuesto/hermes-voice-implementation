@@ -39,8 +39,22 @@ _CONFIRM_PARAMS: Dict[str, Any] = {
                 "True only after app-scoped computer_use showed Voice is visibly active."
             ),
         },
+        "model_verified": {
+            "type": "boolean",
+            "description": (
+                "True only after the user chose a model and a post-Voice app-scoped capture "
+                "showed that model still selected."
+            ),
+        },
+        "effort_verified": {
+            "type": "boolean",
+            "description": (
+                "True only after the user chose a reasoning effort and a post-Voice "
+                "app-scoped capture showed that effort still selected."
+            ),
+        },
     },
-    "required": ["voice_visible"],
+    "required": ["voice_visible", "model_verified", "effort_verified"],
     "additionalProperties": False,
 }
 
@@ -48,9 +62,10 @@ START_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_start",
     "description": (
         "On this Windows PC, preflight the unlocked session, launch the store-signed "
-        "Codex desktop app if needed, and prove VB-CABLE capture is present. "
-        "Returns starting. Does not click Voice, create a task, or select the microphone. "
-        "After computer_use finishes Voice and CABLE Output, call codex_voice_confirm. "
+        "Codex desktop app if needed, prove VB-CABLE capture is present, and start the "
+        "configured physical-microphone-to-VB-CABLE stream. Returns starting. Does not "
+        "click Voice or create a task. After computer_use verifies the user's model and "
+        "effort choices survived Voice startup, call codex_voice_confirm. "
         "mode=new is a new conversation. mode=current is the selected conversation. "
         "Does not accept task IDs, titles, or App Server resume keys."
     ),
@@ -60,9 +75,11 @@ START_SCHEMA: Dict[str, Any] = {
 CONFIRM_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_confirm",
     "description": (
-        "Record Codex Voice ready after computer_use verified Voice is visible. "
+        "Record Codex Voice ready after computer_use verified Voice is visible and the "
+        "user-selected model and reasoning effort remain selected after Voice startup. "
         "CABLE Output (VB-Audio Virtual Cable) is configured once in Codex Settings, "
-        "not selected per call. Call only while status is starting. voice_visible must be true. "
+        "not selected per call. Call only while status is starting. All three verification "
+        "flags must be true. "
         "Does not inspect conversation contents."
     ),
     "parameters": _CONFIRM_PARAMS,
@@ -81,7 +98,8 @@ STOP_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_stop",
     "description": (
         "Clear companion Voice session state after computer_use ended Voice and "
-        "verified it ended. Leaves the Codex task open. Does not delete, cancel, "
+        "verified it ended. Cooperatively stops the microphone-to-VB-CABLE stream. "
+        "Leaves the Codex task open. Does not delete, cancel, "
         "archive, or close the task."
     ),
     "parameters": _EMPTY_PARAMS,

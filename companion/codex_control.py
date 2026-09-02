@@ -13,8 +13,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Protocol
 
 STATUSES = ("inactive", "starting", "ready", "stopping", "failed")
@@ -31,11 +33,17 @@ ERRORS = (
     "voice_not_ready",
     "stop_failed",
     "mode_required",
+    "source_mic_missing",
+    "audio_bridge_failed",
+    "model_not_verified",
+    "effort_not_verified",
 )
 RESULT_KEYS = ("ok", "status", "error")
 RESUME_KEYS = frozenset({"task_id", "thread_id", "title", "resume", "task_title"})
 START_MODES = ("new", "current")
 CABLE_MIC_NAME = "CABLE Output (VB-Audio Virtual Cable)"
+CABLE_INPUT_NAME = "CABLE Input (VB-Audio Virtual Cable)"
+SOURCE_MIC_ENV = "HERMES_VOICE_SOURCE_MIC"
 NEW_TASK_NAMES = ("New task", "New chat", "New thread")
 VOICE_START_NAMES = ("Voice", "Start voice", "Voice mode")
 VOICE_READY_NAMES = ("Stop voice", "End voice", "Mute microphone")
@@ -80,6 +88,13 @@ class DesktopUi(Protocol):
 
 class CableMic(Protocol):
     def output_present(self) -> bool: ...
+
+
+class AudioRouter(Protocol):
+    def start(self) -> bool: ...
+    def is_running(self) -> bool: ...
+    def stop(self) -> bool: ...
+    def error(self) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -167,6 +182,7 @@ class CodexVoiceController:
         launcher: PackageLauncher,
         ui: DesktopUi,
         cable: CableMic,
+        router: AudioRouter,
         sleep: Callable[[float], None] = time.sleep,
         ready_wait_s: float = READY_WAIT_SECONDS,
         stop_wait_s: float = STOP_WAIT_SECONDS,
@@ -175,12 +191,17 @@ class CodexVoiceController:
         self._launcher = launcher
         self._ui = ui
         self._cable = cable
+        self._router = router
         self._sleep = sleep
         self._ready_wait_s = ready_wait_s
         self._stop_wait_s = stop_wait_s
         self.session = Session()
 
     def status(self) -> dict[str, Any]:
+        if self.session.status in ("starting", "ready") and not self._router.is_running():
+            self.session.status = "failed"
+            self.session.owned = False
+            return allowlisted(False, "failed", "audio_bridge_failed")
         return allowlisted(self.session.status != "failed", self.session.status)
 
     def start(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -199,7 +220,11 @@ class CodexVoiceController:
             self.session.status = "failed"
             return allowlisted(False, "failed", "session_locked")
         if self.session.owned and self.session.status == "ready":
-            return allowlisted(True, "ready")
+            if self._router.is_running():
+                return allowlisted(True, "ready")
+            self.session.status = "failed"
+            self.session.owned = False
+            return allowlisted(False, "failed", "audio_bridge_failed")
         if not self._cable.output_present():
             self.session.status = "failed"
             return allowlisted(False, "failed", "cable_mic_missing")
@@ -217,6 +242,10 @@ class CodexVoiceController:
                 self.session.status = "failed"
                 return allowlisted(False, "failed", "launch_failed")
 
+        if not self._router.start():
+            self.session.status = "failed"
+            return allowlisted(False, "failed", self._router.error() or "audio_bridge_failed")
+
         self.session.created_fresh_task = mode == "new"
         self.session.owned = False
         self.session.status = "starting"
@@ -231,16 +260,29 @@ class CodexVoiceController:
             return allowlisted(True, "ready")
         if self.session.status != "starting":
             return allowlisted(False, "failed", "voice_not_ready")
+        if not self._router.is_running():
+            self.session.status = "failed"
+            return allowlisted(False, "failed", "audio_bridge_failed")
         if params.get("voice_visible") is not True:
             return allowlisted(False, "starting", "voice_not_ready")
+        if params.get("model_verified") is not True:
+            return allowlisted(False, "starting", "model_not_verified")
+        if params.get("effort_verified") is not True:
+            return allowlisted(False, "starting", "effort_not_verified")
         self.session.owned = True
         self.session.status = "ready"
         return allowlisted(True, "ready")
 
     def stop(self) -> dict[str, Any]:
         if self.session.status == "inactive" and not self.session.owned:
+            if self._router.is_running() and not self._router.stop():
+                self.session.status = "failed"
+                return allowlisted(False, "failed", "stop_failed")
             return allowlisted(True, "inactive")
         self.session.status = "stopping"
+        if not self._router.stop():
+            self.session.status = "failed"
+            return allowlisted(False, "failed", "stop_failed")
         self.session.owned = False
         self.session.status = "inactive"
         return allowlisted(True, "inactive")
@@ -355,6 +397,34 @@ class StaticCable:
         return self.present
 
 
+class StaticAudioRouter:
+    def __init__(self, start_ok: bool = True, stop_ok: bool = True) -> None:
+        self.start_ok = start_ok
+        self.stop_ok = stop_ok
+        self.running = False
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.failure = "audio_bridge_failed"
+
+    def start(self) -> bool:
+        self.start_calls += 1
+        self.running = self.start_ok
+        return self.running
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def stop(self) -> bool:
+        self.stop_calls += 1
+        if not self.stop_ok:
+            return False
+        self.running = False
+        return True
+
+    def error(self) -> str | None:
+        return None if self.running else self.failure
+
+
 class WinSessionGuard:
     def is_windows(self) -> bool:
         return os.name == "nt"
@@ -394,6 +464,187 @@ class WinCableMic:
             if name == needle or ("cable output" in name and "vb-audio" in name):
                 return True
         return False
+
+
+def _configured_source_microphone() -> str | None:
+    configured = os.environ.get(SOURCE_MIC_ENV, "").strip()
+    if configured:
+        return configured
+    local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    if not hermes_home and local_app_data:
+        hermes_home = str(Path(local_app_data) / "hermes")
+    if not hermes_home:
+        return None
+    config_path = Path(hermes_home) / "config" / "hermes_voice.json"
+    try:
+        if not config_path.is_file() or config_path.stat().st_size > 8192:
+            return None
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    name = payload.get("source_microphone")
+    if not isinstance(name, str) or not name.strip() or len(name) > 200:
+        return None
+    return name.strip()
+
+
+def _pick_wasapi_device(
+    devices: Any,
+    hostapis: Any,
+    *,
+    name: str,
+    direction: str,
+) -> int:
+    channel_key = "max_input_channels" if direction == "input" else "max_output_channels"
+    matches: list[int] = []
+    for index, device in enumerate(devices):
+        try:
+            hostapi = hostapis[int(device["hostapi"])]
+            if (
+                str(hostapi["name"]) == "Windows WASAPI"
+                and str(device["name"]) == name
+                and int(device[channel_key]) > 0
+            ):
+                matches.append(index)
+        except (IndexError, KeyError, TypeError, ValueError):
+            continue
+    if len(matches) != 1:
+        raise RuntimeError("exactly one matching WASAPI endpoint is required")
+    return matches[0]
+
+
+def _route_channels(chunk: Any, output_channels: int) -> Any:
+    import numpy as np
+
+    audio = np.asarray(chunk, dtype=np.float32)
+    if audio.ndim == 1:
+        audio = audio[:, np.newaxis]
+    if audio.ndim != 2 or audio.shape[1] < 1:
+        raise RuntimeError("unsupported audio shape")
+    if output_channels == audio.shape[1]:
+        return audio
+    if output_channels == 1:
+        return np.mean(audio, axis=1, keepdims=True, dtype=np.float32)
+    if audio.shape[1] == 1:
+        return np.repeat(audio, output_channels, axis=1)
+    if audio.shape[1] > output_channels:
+        return audio[:, :output_channels]
+    repeats = (output_channels + audio.shape[1] - 1) // audio.shape[1]
+    return np.tile(audio, (1, repeats))[:, :output_channels]
+
+
+class WinAudioRouter:
+    """Continuously route one configured physical microphone into VB-CABLE."""
+
+    def __init__(self, source_name: str | None = None) -> None:
+        self._source_name = source_name
+        self._stop_event = threading.Event()
+        self._started_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._active = False
+        self._last_error: str | None = None
+        self._lock = threading.Lock()
+
+    def start(self) -> bool:
+        if self.is_running():
+            return True
+        source_name = self._source_name or _configured_source_microphone()
+        if not source_name or "cable" in source_name.lower() or "loopback" in source_name.lower():
+            self._last_error = "source_mic_missing"
+            return False
+        try:
+            import sounddevice as sd
+
+            devices = sd.query_devices()
+            hostapis = sd.query_hostapis()
+            input_index = _pick_wasapi_device(
+                devices, hostapis, name=source_name, direction="input"
+            )
+            output_index = _pick_wasapi_device(
+                devices, hostapis, name=CABLE_INPUT_NAME, direction="output"
+            )
+            input_channels = max(1, min(2, int(devices[input_index]["max_input_channels"])))
+            output_channels = max(1, min(2, int(devices[output_index]["max_output_channels"])))
+        except (ImportError, IndexError, KeyError, RuntimeError, TypeError, ValueError):
+            self._last_error = "source_mic_missing"
+            return False
+
+        with self._lock:
+            self._stop_event.clear()
+            self._started_event.clear()
+            self._active = False
+            self._last_error = None
+            self._thread = threading.Thread(
+                target=self._run,
+                args=(input_index, output_index, input_channels, output_channels),
+                name="hermes-voice-audio-router",
+                daemon=True,
+            )
+            self._thread.start()
+        self._started_event.wait(timeout=3.0)
+        return self.is_running()
+
+    def _run(
+        self,
+        input_index: int,
+        output_index: int,
+        input_channels: int,
+        output_channels: int,
+    ) -> None:
+        coinitialized = False
+        try:
+            import ctypes
+            import sounddevice as sd
+
+            result = int(ctypes.windll.ole32.CoInitializeEx(None, 0))
+            if result not in (0, 1):
+                raise OSError("COM initialization failed")
+            coinitialized = True
+
+            def callback(indata, outdata, _frames, _time_info, status) -> None:
+                del status
+                outdata[:] = _route_channels(indata, output_channels)
+
+            with sd.Stream(
+                device=(input_index, output_index),
+                samplerate=48000,
+                blocksize=480,
+                channels=(input_channels, output_channels),
+                dtype="float32",
+                latency="low",
+                callback=callback,
+            ):
+                with self._lock:
+                    self._active = True
+                self._started_event.set()
+                self._stop_event.wait()
+        except Exception:
+            self._last_error = "audio_bridge_failed"
+            self._started_event.set()
+        finally:
+            with self._lock:
+                self._active = False
+            if coinitialized:
+                ctypes.windll.ole32.CoUninitialize()
+
+    def is_running(self) -> bool:
+        with self._lock:
+            return bool(self._active and self._thread and self._thread.is_alive())
+
+    def stop(self) -> bool:
+        with self._lock:
+            worker = self._thread
+        if worker is None or not worker.is_alive():
+            return True
+        self._stop_event.set()
+        worker.join(timeout=3.0)
+        return not worker.is_alive()
+
+    def error(self) -> str | None:
+        return self._last_error
 
 
 class WinDesktopUi:
@@ -836,6 +1087,7 @@ def build_windows_controller() -> CodexVoiceController:
         launcher=WinPackageLauncher(),
         ui=WinDesktopUi(),
         cable=WinCableMic(),
+        router=WinAudioRouter(),
     )
 
 
