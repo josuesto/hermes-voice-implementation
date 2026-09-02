@@ -5,7 +5,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **Prototype implementation is beginning; there is no working release yet.** The project switched to a vertical-slice MVP on 2026-09-01. Exact existing-task resume and the legacy release-grade checkpoint gates are deferred. MVP-01 now focuses on proving local Codex Voice control and two-way Windows audio before adding the browser, Hermes, and Cloudflare layers.
+> **An early local prototype exists; there is no working release yet.** MVP-01 now proves Windows playback and in-memory system-output loopback with 13 passing tests. Two-way Codex Voice input remains blocked until the user installs a programmable virtual microphone. Exact existing-task resume and the legacy release-grade checkpoint gates are deferred.
 
 ## Intended flow
 

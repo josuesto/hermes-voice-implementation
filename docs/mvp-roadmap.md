@@ -44,4 +44,4 @@ This roadmap supersedes the legacy checkpoint map as the gate for the first work
 
 ## Current work
 
-MVP-01 is active. CP-013 exact existing-task resume and its evidence harness are deferred to hardening. The preserved disposable CP-013 test task is not part of MVP-01 and must not be touched by automation.
+MVP-01 is active. The local Python spike proves playback and in-memory WASAPI system-output loopback; 13 focused tests pass. No programmable virtual microphone is installed, so audio injection into Codex Voice awaits the user's decision on the official VB-CABLE driver. CP-013 exact existing-task resume and its evidence harness are deferred to hardening. The preserved disposable CP-013 test task is not part of MVP-01 and must not be touched by automation.
