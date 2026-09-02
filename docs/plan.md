@@ -137,11 +137,13 @@ The package presents a single setup wizard, even though several components are i
 3. The companion launches Codex if necessary.
 4. The companion creates a new task in the appropriate project or context. If context is missing and materially changes the result, Hermes asks the user.
 5. The companion verifies the created task rather than assuming the last click succeeded.
-6. The companion starts Codex Voice and waits for a positive ready signal.
-7. The companion activates the temporary remote media session and its signaling route.
-8. Hermes tells the user the session is ready and sends the current page link. A fresh pairing code is not required while device trust remains valid.
-9. The browser authenticates with its device key, receives an ephemeral session authorization, and establishes WebRTC.
-10. The call screen becomes active only after both microphone and output paths are ready.
+6. Hermes reads the model and reasoning-effort choices currently visible for that task and asks the user to choose both, even if the request already proposed values.
+7. Hermes applies and verifies both choices, then the companion starts Codex Voice and waits for a positive ready signal.
+8. Hermes re-checks model and effort after Voice startup and corrects any automatic change before the session may become ready.
+9. The companion activates the temporary remote media session and its signaling route.
+10. Hermes tells the user the session is ready and sends the current page link. A fresh pairing code is not required while device trust remains valid.
+11. The browser authenticates with its device key, receives an ephemeral session authorization, and establishes WebRTC.
+12. The call screen becomes active only after microphone, output, model, effort, and Voice readiness are verified.
 
 ### 3.3 Normal session: resume task
 
@@ -207,6 +209,8 @@ The skill owns conversation behavior:
 - Infer new versus resume when clear.
 - Ask concise questions only when ambiguity matters.
 - Present recent tasks returned by the companion.
+- Ask for a model and reasoning effort on every Voice start, using the options visible in the selected task rather than a hardcoded list.
+- Verify both choices before Voice and re-check them after Voice startup; correct automatic changes or fail clearly.
 - Wait until the companion reports Voice ready before telling the user to join.
 - Give actionable errors without inventing UI state.
 

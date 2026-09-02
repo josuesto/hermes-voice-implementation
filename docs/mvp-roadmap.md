@@ -14,6 +14,7 @@ Acceleration changes sequencing and review depth, not the agreed product behavio
 - One user and one active remote Voice session.
 - New and existing Codex tasks are both part of the intended flow. Hermes infers the mode when clear and asks when ambiguous. For the practical MVP, Hermes computer use may read the visible recent-task list and select a user-confirmed title; stronger stable-ID correlation remains release hardening.
 - Manual setup is acceptable, but manual runtime startup is not. Hermes must launch Codex, create or select the requested conversation, and start Voice before any end-to-end call is considered working.
+- Every new or resumed Voice call requires the user to choose the currently available Codex model and reasoning effort. Hermes sets and verifies both before Voice, then re-checks and corrects any automatic change after Voice starts.
 - LAN first, then user-owned Cloudflare remote access.
 - Browser call first; Discord remains post-MVP.
 
@@ -31,6 +32,7 @@ These saved behaviors remain required even when they are implemented across succ
 - Hermes is the on/off controller. The phone page cannot start Codex by itself.
 - The user can request a new conversation or resume an existing one. Hermes infers clear intent, asks only when ambiguous, and can present up to ten recent visible conversations.
 - Normal use requires no interaction with the PC: Hermes launches Codex, selects the conversation, starts Voice, verifies readiness, and only then supplies the client connection.
+- Model and reasoning effort are explicit per-call choices. Hermes asks every time, discovers rather than hardcodes available options, and refuses to report ready until both still match after Voice startup.
 - The browser page remains minimal: connection state, microphone mute, Codex-output mute, and End Session.
 - A short break or connection drop uses a reconnect grace period without another pairing code. Device trust has an independently configurable expiry.
 - Ending the call stops the remote media and Voice session but preserves the underlying Codex task and any work it is doing.
@@ -53,7 +55,7 @@ These saved behaviors remain required even when they are implemented across succ
 | ID | Milestone | Pass condition |
 |---|---|---|
 | MVP-01 | Windows audio path | Programmatic audio reaches `CABLE Output` through VB-CABLE, and system output is captured in memory without saving recordings. |
-| MVP-02 | Hermes-controlled local Codex Voice | From Telegram, Hermes supports the saved new/resume conversation flow: infer when clear, ask when ambiguous, show up to ten visible recent conversations when needed, use computer use to open the confirmed conversation, and use deterministic tools for Voice/audio lifecycle. It launches Codex when needed, starts and verifies real Voice, and stops Voice without deleting or cancelling the task. No manual Codex interaction is required at runtime. |
+| MVP-02 | Hermes-controlled local Codex Voice | From Telegram, Hermes supports the saved new/resume conversation flow: infer when clear, ask when ambiguous, show up to ten visible recent conversations when needed, open the confirmed conversation, ask for model and effort, and use deterministic tools for Voice/audio lifecycle. It launches Codex, continuously routes the configured physical microphone through VB-CABLE, verifies model and effort again after real Voice starts, and stops Voice/audio without deleting or cancelling the task. No manual Codex interaction is required at runtime. |
 | MVP-03 | Local browser call | A broadly compatible phone browser on the LAN holds one intelligible two-way audio conversation with the Hermes-started Codex Voice session for five minutes. The minimal page includes connection state, microphone mute, Codex-output mute, and End Session; reconnect during the grace period does not require a new code; ending preserves the Codex task. |
 | MVP-04 | User-owned remote route | The same flow works away from home through a user-owned Cloudflare route with no custom domain required. Hermes is the on switch and sends the current usable link only after Voice and the route are ready. The permanent page cannot start Codex by itself; device trust and live-session authorization remain separate. |
 | MVP-05 | Usable package | One guided setup checks Codex/sign-in/Voice, Hermes topology, VB-CABLE, provider connection, and phone pairing. It installs the plugin and companion as one product, provides status/repair/uninstall, enforces one active session, and passes five consecutive calls on the reference setup. |
@@ -62,6 +64,6 @@ These saved behaviors remain required even when they are implemented across succ
 
 ## Current work
 
-MVP-01 is complete on the reference PC. The local Python spike proves playback and in-memory WASAPI system-output loopback; 13 focused tests pass. The user installed the official VB-CABLE driver, and an in-memory test proved the `CABLE Input -> CABLE Output` route (`peak=0.200001`, 62,400 frames discarded, no audio saved).
+MVP-01 is complete on the reference PC. The local Python spike proves playback and in-memory WASAPI system-output loopback; 18 focused tests pass. The user installed the official VB-CABLE driver, an in-memory test proved the cable route, and a continuous WASAPI callback from the Blue Snowball into `CABLE Input` was heard successfully by real Codex Voice. No audio was saved.
 
-MVP-02 is active and awaiting live acceptance. The same-host Hermes plugin now implements the saved new/resume contract: the skill infers or asks, uses app-scoped computer use for visible recent-conversation discovery and user-confirmed selection, and calls the deterministic controller with `mode=new` or `mode=current` for Voice/audio lifecycle. Version 0.1.1 is reviewed, installed, enabled, and loaded by the active gateway. The next end-to-end test begins from Telegram and requires no manual Codex interaction. Strong stable-ID existing-task automation remains hardening work; the user-confirmed visible-title flow is the MVP route.
+MVP-02 is active and awaiting one live Telegram acceptance cycle. Version 0.3.0 is committed, pushed, installed, enabled, and loaded by the active gateway. `codex_voice_start` now starts the configured Blue Snowball-to-VB-CABLE stream; status detects a dropped stream; stop releases it cooperatively. The skill preserves visible recent-conversation selection and asks for model plus effort on every call, then re-checks both after Voice startup before `codex_voice_confirm` can return `ready`. Unit/integration fakes total 35, and the installed companion passed a real start/status/stop audio lifecycle check. Strong stable-ID existing-task automation remains hardening work.

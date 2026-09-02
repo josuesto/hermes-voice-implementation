@@ -5,14 +5,14 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **An early local prototype exists; there is no working release yet.** MVP-01 proves Windows playback, in-memory system-output loopback, and the installed VB-CABLE `CABLE Input -> CABLE Output` route with 13 passing tests and no saved audio. MVP-02 plugin version 0.1.1 now implements the saved new/resume conversation picker through Hermes computer use plus deterministic Voice/audio control; it is installed and awaiting its first Telegram-controlled live cycle. Strong stable-ID correlation and legacy release-grade gates are deferred; the user-facing features are not removed.
+> **A working same-host prototype exists; there is no packaged release yet.** MVP-01 proves Windows playback, in-memory system-output loopback, and the installed VB-CABLE route with 18 passing tests and no saved audio. The user also confirmed that continuously routed Blue Snowball audio reaches real Codex Voice. MVP-02 plugin version 0.3.0 is installed and enabled: it owns the audio-stream lifecycle, preserves the saved new/resume picker, and requires Hermes to ask for and post-Voice verify the model and reasoning effort. The full Telegram-controlled cycle is the next acceptance test.
 
 ## Intended flow
 
 1. The user's Windows PC is awake, unlocked, and signed in to Codex; Hermes is available on that PC or another user-controlled host.
 2. The user messages Hermes to start a new Codex task or resume an existing one.
-3. A local companion deterministically opens the correct Codex desktop task and starts the real Voice mode.
-4. After Voice is verified ready, Hermes sends the current provider-assigned private link.
+3. Hermes asks which available model and reasoning effort to use, applies both to the selected task, and a local companion starts the real Voice mode.
+4. Hermes re-checks both settings after Voice startup, because Voice may change them, and sends the private link only after the complete session is verified ready.
 5. A compatible phone browser sends microphone input and receives only Codex audio through WebRTC.
 6. Ending the remote voice session stops the bridge and Voice mode while preserving the underlying Codex task.
 
@@ -23,6 +23,7 @@ The browser is the first release transport. A post-v1 optional Discord adapter i
 - The bridge must never intentionally record audio or add transcripts.
 - It must capture only Codex audio and must not silently fall back to system audio or the PC's physical microphone.
 - Task selection, authentication, pairing, teardown, and recovery must fail closed.
+- Every Voice start explicitly confirms its model and reasoning effort; current visible choices are discovered instead of hardcoded.
 - Windows is the initial target; phone support will be capability-based and evidence-driven.
 
 ## Planned architecture
