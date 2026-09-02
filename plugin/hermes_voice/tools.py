@@ -39,15 +39,8 @@ _CONFIRM_PARAMS: Dict[str, Any] = {
                 "True only after app-scoped computer_use showed Voice is visibly active."
             ),
         },
-        "cable_selected": {
-            "type": "boolean",
-            "description": (
-                "True only after app-scoped computer_use selected and verified "
-                "CABLE Output (VB-Audio Virtual Cable)."
-            ),
-        },
     },
-    "required": ["voice_visible", "cable_selected"],
+    "required": ["voice_visible"],
     "additionalProperties": False,
 }
 
@@ -67,9 +60,9 @@ START_SCHEMA: Dict[str, Any] = {
 CONFIRM_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_confirm",
     "description": (
-        "Record Codex Voice ready after computer_use verified Voice is visible and "
-        "CABLE Output (VB-Audio Virtual Cable) is selected. Call only while status is "
-        "starting. Both voice_visible and cable_selected must be true. "
+        "Record Codex Voice ready after computer_use verified Voice is visible. "
+        "CABLE Output (VB-Audio Virtual Cable) is configured once in Codex Settings, "
+        "not selected per call. Call only while status is starting. voice_visible must be true. "
         "Does not inspect conversation contents."
     ),
     "parameters": _CONFIRM_PARAMS,

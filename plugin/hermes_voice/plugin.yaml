@@ -1,5 +1,5 @@
 name: hermes_voice
-version: 0.2.0
+version: 0.2.1
 description: Same-host Windows tools that preflight and launch Codex Voice. Hermes computer_use owns Codex UI. Confirm records ready. Stop clears state without deleting the task.
 author: hermes-voice-implementation
 kind: standalone

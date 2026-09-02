@@ -233,8 +233,6 @@ class CodexVoiceController:
             return allowlisted(False, "failed", "voice_not_ready")
         if params.get("voice_visible") is not True:
             return allowlisted(False, "starting", "voice_not_ready")
-        if params.get("cable_selected") is not True:
-            return allowlisted(False, "starting", "cable_mic_not_selected")
         self.session.owned = True
         self.session.status = "ready"
         return allowlisted(True, "ready")

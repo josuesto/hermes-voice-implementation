@@ -30,7 +30,7 @@ def register(ctx) -> None:
             "codex_voice_confirm",
             CONFIRM_SCHEMA,
             handle_codex_voice_confirm,
-            "After computer_use shows Voice active and CABLE Output selected, record ready. Both voice_visible and cable_selected must be true.",
+            "After computer_use shows Voice active, record ready. CABLE Output is configured once in Codex Settings.",
         ),
         (
             "codex_voice_status",

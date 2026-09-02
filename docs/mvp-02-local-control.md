@@ -50,14 +50,13 @@ New:
 1. `codex_voice_start` `mode=new` returns `starting`.
 2. App-scoped `computer_use` creates the fresh conversation.
 3. App-scoped `computer_use` starts Voice and verifies it is visible.
-4. App-scoped `computer_use` selects and verifies `CABLE Output (VB-Audio Virtual Cable)`.
-5. `codex_voice_confirm` `voice_visible=true` `cable_selected=true` returns `ready`.
+4. `codex_voice_confirm` `voice_visible=true` returns `ready`. `CABLE Output (VB-Audio Virtual Cable)` is a one-time Codex Settings choice, not a per-call control.
 
 Resume:
 
 1. `codex_voice_start` `mode=current` returns `starting` (launch first when Codex is closed).
 2. App-scoped `computer_use` lists up to ten visible names if needed, user chooses duplicates, then verifies the title is selected or open.
-3. App-scoped `computer_use` starts Voice, verifies Voice, selects and verifies CABLE Output.
+3. App-scoped `computer_use` starts Voice and verifies Voice.
 4. `codex_voice_confirm` returns `ready`.
 
 Stop:
@@ -77,6 +76,6 @@ Stop:
 
 - One owned Voice session.
 - `codex_voice_start` requires `mode=new` or `mode=current` and returns `starting` unless already `ready`.
-- `codex_voice_confirm` is the only path to `ready`. Both flags must be true.
-- Missing CABLE endpoint fails closed. Unselected CABLE keeps `starting`. The physical PC microphone is never a silent fallback.
+- `codex_voice_confirm` is the only path to `ready`. `voice_visible` must be true.
+- Missing CABLE endpoint fails closed. Codex must be configured once to use CABLE Output; the runtime does not try to change that setting. The physical PC microphone is never a silent fallback.
 - No force-kill of Codex. Stop releases companion state only.

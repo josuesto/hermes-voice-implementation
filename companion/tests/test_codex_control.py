@@ -42,7 +42,7 @@ def _controller(**ui_kw) -> tuple[CodexVoiceController, StaticUi, StaticLauncher
 
 
 def _confirm(ctrl: CodexVoiceController) -> dict:
-    return ctrl.confirm({"voice_visible": True, "cable_selected": True})
+    return ctrl.confirm({"voice_visible": True})
 
 
 class StartStatusStopTests(unittest.TestCase):
@@ -76,11 +76,11 @@ class StartStatusStopTests(unittest.TestCase):
         self.assertEqual(ui.new_task_calls, 0)
         self.assertEqual(launcher.activate_calls, 0)
 
-    def test_unselected_cable_keeps_starting(self):
+    def test_false_voice_confirmation_keeps_starting(self):
         ctrl, ui, _launcher = _controller()
         ctrl.start({"mode": "new"})
-        result = ctrl.confirm({"voice_visible": True, "cable_selected": False})
-        self.assertEqual(result["error"], "cable_mic_not_selected")
+        result = ctrl.confirm({"voice_visible": False})
+        self.assertEqual(result["error"], "voice_not_ready")
         self.assertEqual(result["status"], "starting")
         self.assertFalse(ctrl.session.owned)
         self.assertEqual(ui.close_task_calls, 0)
@@ -240,9 +240,9 @@ class StartStatusStopTests(unittest.TestCase):
         self.assertEqual(ui.new_task_calls, 0)
         self.assertNotEqual(started["status"], "ready")
         self.assertNotEqual(started.get("error"), "voice_not_ready")
-        denied = ctrl.confirm({"voice_visible": True, "cable_selected": False})
+        denied = ctrl.confirm({"voice_visible": False})
         self.assertEqual(denied["status"], "starting")
-        self.assertEqual(denied["error"], "cable_mic_not_selected")
+        self.assertEqual(denied["error"], "voice_not_ready")
         self.assertFalse(ctrl.session.owned)
         confirmed = _confirm(ctrl)
         self.assertEqual(confirmed, {"ok": True, "status": "ready"})
@@ -254,15 +254,12 @@ class StartStatusStopTests(unittest.TestCase):
         self.assertNotEqual(result["status"], "ready")
         self.assertFalse(ctrl.session.owned)
 
-    def test_confirm_requires_voice_and_cable(self):
+    def test_confirm_requires_visible_voice(self):
         ctrl, _ui, _launcher = _controller()
         ctrl.start({"mode": "current"})
-        missing_voice = ctrl.confirm({"voice_visible": False, "cable_selected": True})
-        missing_cable = ctrl.confirm({"voice_visible": True, "cable_selected": False})
+        missing_voice = ctrl.confirm({"voice_visible": False})
         self.assertEqual(missing_voice["error"], "voice_not_ready")
         self.assertEqual(missing_voice["status"], "starting")
-        self.assertEqual(missing_cable["error"], "cable_mic_not_selected")
-        self.assertEqual(missing_cable["status"], "starting")
         self.assertFalse(ctrl.session.owned)
 
     def test_start_does_not_invoke_codex_ui(self):
@@ -312,7 +309,7 @@ class PluginToolTests(unittest.TestCase):
         set_controller(ctrl)
         started = json.loads(handle_codex_voice_start({"mode": "new"}))
         confirmed = json.loads(
-            handle_codex_voice_confirm({"voice_visible": True, "cable_selected": True})
+            handle_codex_voice_confirm({"voice_visible": True})
         )
         status = json.loads(handle_codex_voice_status({}))
         stopped = json.loads(handle_codex_voice_stop({}))
@@ -355,15 +352,15 @@ class PluginToolTests(unittest.TestCase):
         self.assertEqual(set(params["properties"]["mode"]["enum"]), {"new", "current"})
         self.assertEqual(params.get("additionalProperties"), False)
 
-    def test_confirm_schema_requires_voice_and_cable(self):
+    def test_confirm_schema_requires_visible_voice(self):
         plugin_root = ROOT / "plugin" / "hermes_voice"
         if str(plugin_root.parent) not in sys.path:
             sys.path.insert(0, str(plugin_root.parent))
         from hermes_voice.tools import CONFIRM_SCHEMA
 
         params = CONFIRM_SCHEMA["parameters"]
-        self.assertEqual(set(params["properties"]), {"voice_visible", "cable_selected"})
-        self.assertEqual(set(params["required"]), {"voice_visible", "cable_selected"})
+        self.assertEqual(set(params["properties"]), {"voice_visible"})
+        self.assertEqual(set(params["required"]), {"voice_visible"})
 
     def test_skill_infer_ask_list_select_rules(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")
@@ -379,14 +376,15 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("do not guess", lowered)
         self.assertIn("never use raw coordinates", lowered)
 
-    def test_skill_computer_use_owns_voice_and_cable(self):
+    def test_skill_uses_setup_time_cable_and_runtime_voice(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")
         lowered = text.lower()
         self.assertIn("computer_use", text)
         self.assertIn("codex_voice_confirm", text)
         self.assertIn("cable output", lowered)
         self.assertIn("slash command", lowered)
-        self.assertIn("microphone selection", lowered)
+        self.assertIn("one-time setup", lowered)
+        self.assertIn("do not attempt per-call device selection", lowered)
 
     def test_indexed_skill_matches_plugin_skill(self):
         indexed = INDEXED_SKILL.read_text(encoding="utf-8")
