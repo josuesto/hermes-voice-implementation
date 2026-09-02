@@ -1,0 +1,1 @@
+"""Hermes plugin package for local Codex Voice control."""
