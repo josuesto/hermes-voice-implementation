@@ -35,6 +35,76 @@ class DeviceSelectionTests(unittest.TestCase):
             server.pick_wasapi_output([], hostapis)
 
 
+class CodexProcessSelectionTests(unittest.TestCase):
+    def test_selects_one_current_session_codex_main_window(self):
+        rows = [
+            {
+                "visible": True,
+                "owner": False,
+                "class_name": "Chrome_WidgetWin_1",
+                "process_name": "ChatGPT.exe",
+                "session_id": 7,
+                "pid": 42,
+            },
+            {
+                "visible": True,
+                "owner": False,
+                "class_name": "OtherWindow",
+                "process_name": "other.exe",
+                "session_id": 7,
+                "pid": 99,
+            },
+        ]
+        self.assertEqual(server.pick_unique_codex_process(rows, 7), 42)
+
+    def test_ambiguous_or_other_session_refuses(self):
+        candidate = {
+            "visible": True,
+            "owner": False,
+            "class_name": "Chrome_WidgetWin_1",
+            "process_name": "chatgpt.exe",
+            "session_id": 7,
+            "pid": 42,
+        }
+        with self.assertRaises(RuntimeError):
+            server.pick_unique_codex_process([candidate, dict(candidate, pid=43)], 7)
+        with self.assertRaises(RuntimeError):
+            server.pick_unique_codex_process([candidate], 8)
+
+
+class FakeProcessSource:
+    instances = []
+
+    def __init__(self):
+        self.started = False
+        self.closed = False
+        self.sample = 1200
+        self.__class__.instances.append(self)
+
+    def start(self):
+        self.started = True
+
+    def read(self, byte_count):
+        frame_count = byte_count // server.PCM_BYTES_PER_FRAME
+        samples = np.full((frame_count, 2), self.sample, dtype="<i2")
+        return samples.tobytes()
+
+    def close(self):
+        self.closed = True
+
+
+class CodexProcessTrackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pcm_is_returned_and_source_is_closed(self):
+        FakeProcessSource.instances.clear()
+        track = server.CodexProcessAudioTrack(source_factory=FakeProcessSource)
+        frame = await track.recv()
+        self.assertEqual(frame.sample_rate, server.SAMPLE_RATE)
+        self.assertGreater(int(np.abs(frame.to_ndarray()).max()), 0)
+        track.stop()
+        self.assertTrue(FakeProcessSource.instances[0].started)
+        self.assertTrue(FakeProcessSource.instances[0].closed)
+
+
 class ToneTrackTests(unittest.IsolatedAsyncioTestCase):
     async def test_track_is_silent_until_explicit_trigger(self):
         track = server.TestToneTrack()
@@ -96,7 +166,13 @@ class FakeSink:
 class WebRtcIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         FakeSink.instances.clear()
-        self.call_server = server.BrowserCallServer(sink_factory=FakeSink)
+        FakeProcessSource.instances.clear()
+        self.call_server = server.BrowserCallServer(
+            sink_factory=FakeSink,
+            outgoing_factory=lambda: server.CodexProcessAudioTrack(
+                source_factory=FakeProcessSource
+            ),
+        )
         self.client = TestClient(TestServer(server.build_app(self.call_server)))
         await self.client.start_server()
         self.peer = RTCPeerConnection()
@@ -145,6 +221,7 @@ class WebRtcIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(end_response.status, 200)
         self.assertFalse(self.call_server.active)
         self.assertTrue(FakeSink.instances[0].closed)
+        self.assertTrue(FakeProcessSource.instances[0].closed)
 
 
 if __name__ == "__main__":
