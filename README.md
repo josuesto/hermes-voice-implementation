@@ -5,7 +5,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **Planning and feasibility only. There is no working product release or production code yet.** CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 are Complete. CP-013 is In progress: paginated existing-task resume is unavailable under the tested safe interfaces, and its synthetically accepted fresh-task route awaits explicit live approval. CP-020, CP-030, and CP-040 are Ready. Phase Zero has not passed, and production scaffolding remains blocked.
+> **Prototype implementation is beginning; there is no working release yet.** The project switched to a vertical-slice MVP on 2026-09-01. Exact existing-task resume and the legacy release-grade checkpoint gates are deferred. MVP-01 now focuses on proving local Codex Voice control and two-way Windows audio before adding the browser, Hermes, and Cloudflare layers.
 
 ## Intended flow
 
@@ -37,9 +37,9 @@ The browser is the first release transport. A post-v1 optional Discord adapter i
 
 ## Project status
 
-The project is working through gated planning and feasibility checkpoints. CP-002 (target hardware and software inventory), CP-003 (privacy and threat boundaries), CP-004 (feasibility workspace and evidence harness), CP-010 (Codex surface discovery), CP-011 (deterministic Codex launch and session control), and CP-012 (recent-task enumeration and stable identity) are Complete. CP-011 established packaged activation for reliable cold launch and already-open reuse on an active, unlocked, same-owner Windows session. CP-012 established privacy-reduced enumeration through three stable App Server `thread/list` calls without opening or mutating a task.
+The project completed its baseline inventory, security boundaries, deterministic Codex launch, and recent-task discovery research. That work remains useful, but the active execution path is now the short [MVP roadmap](docs/mvp-roadmap.md). MVP implementation starts with a fresh task and the real Voice/audio loop.
 
-CP-013 Stage A and its existing-task route discovery are accepted. The tested task uses paginated history, which the current App Server can list and summary-read but not resume; bounded desktop UI Automation exposed no unique stable-ID task-selection element. The project therefore rejects title-only fallback and treats existing paginated-task resume as unsupported. The redesigned fresh-task route passed its private 126-case synthetic harness and permits only collision-checked owned disposable names plus `SelectionItemPattern.Select`; live creation remains explicitly approval-gated. CP-020, CP-030, and CP-040 remain Ready under their prepared implementation plans. Other later dependents remain Pending, and CP-044 still waits on CP-041. There is still no working product release or production code. This public repository is documentation-only and does **not** satisfy CP-100 or authorize product scaffolding; those remain blocked until the Phase Zero feasibility gate passes.
+Existing paginated-task resume is unsupported under the tested interfaces and is deferred rather than blocking the prototype. MVP-01 may use a fresh task and a temporary manual Voice step. The next goal is a working local audio slice, followed by a LAN browser call, Hermes start/stop control, and user-owned Cloudflare access. The execution change is recorded in [ADR 0003](docs/adr/0003-vertical-slice-mvp-execution.md).
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
@@ -51,7 +51,7 @@ CP-013 Stage A and its existing-task route discovery are accepted. The tested ta
 - [CP-030 implementation plan](docs/checkpoints/cp-030-mobile-capability-probe-implementation-plan.md)
 - [CP-040 implementation plan](docs/checkpoints/cp-040-provider-contract-implementation-plan.md)
 
-See the [detailed product and build plan](docs/plan.md) and [checkpoint map](docs/checkpoint-map.md).
+See the active [MVP roadmap](docs/mvp-roadmap.md), the [detailed product plan](docs/plan.md), and the legacy [checkpoint map](docs/checkpoint-map.md).
 
 The optional transport boundary is recorded in [ADR 0002](docs/adr/0002-browser-first-optional-discord-voice-transport.md).
 

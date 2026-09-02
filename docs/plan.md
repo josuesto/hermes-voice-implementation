@@ -4,6 +4,9 @@ Status: architecture plan, prior to implementation
 Initial supported platform: Windows  
 Working name: **Hermes Codex Voice Remote**
 
+> [!IMPORTANT]
+> **MVP acceleration decision — 2026-09-01:** [`docs/mvp-roadmap.md`](mvp-roadmap.md) is now the active execution plan. This detailed document remains the target product specification, but its legacy feasibility gates do not block the first vertical slice. The MVP is Windows/same-host/new-task-only, permits temporary manual steps, and prioritizes proving Codex Voice plus two-way audio before resume, provider abstraction, broad compatibility, or production hardening.
+
 > [!IMPORTANT] Mandatory implementation workflow
 > **Codex is the planner, technical reviewer, and checkpoint authority. Grok 4.6 in Cursor is the implementation/worker agent.** Before any checkpoint is implemented, Codex writes a checkpoint-specific implementation plan with scope, files, tests, evidence, and acceptance criteria. Grok 4.6 implements that plan without expanding its scope. Codex then independently inspects the changes, runs or verifies the required tests, and compares the evidence with the checkpoint criteria. If the work passes, Codex updates the checkpoint map and Obsidian project note, commits and pushes the accepted public-safe checkpoint outcome to `main`, and plans the next checkpoint. Private machine evidence, credentials, audio, transcripts, prompts, task content, and personal paths are never published merely to satisfy this rule. If the work fails or is incomplete, Codex writes a precise rework request for Grok and reviews the revision again; failed or unaccepted work is not represented as a completed-checkpoint commit. A worker report alone never completes a checkpoint, and a different implementation agent is not substituted without the user's approval.
 

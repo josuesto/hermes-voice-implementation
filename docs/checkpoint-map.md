@@ -1,9 +1,12 @@
 # Hermes Codex Voice Remote — Checkpoint Map
 
 Generated: 2026-08-31  
-Status: Planning and feasibility; CP-002, CP-003, CP-004, CP-010, CP-011, and CP-012 Complete; CP-013 In progress with paginated resume unavailable and its accepted fresh-task route awaiting live approval; CP-020, CP-030, and CP-040 Ready
+Status: Legacy feasibility/hardening reference; active execution moved to [`docs/mvp-roadmap.md`](mvp-roadmap.md) on 2026-09-01
 Canonical plan: [`docs/plan.md`](plan.md)  
 Maintainer project index: private; not included in this repository
+
+> [!IMPORTANT]
+> **This map no longer gates the first working prototype.** ADR 0003 replaces the Phase Zero/Gate F0 sequence with seven vertical milestones. Exact existing-task resume (CP-013), exhaustive evidence harnesses, provider abstraction, and broad compatibility are deferred. MVP-01 is active: fresh-task local Codex Voice plus two-way Windows audio. The detailed checkpoints below remain available for later hardening and release qualification.
 
 > [!IMPORTANT] Mandatory implementation workflow
 > **Codex is the planner, technical reviewer, and checkpoint authority. Grok 4.6 in Cursor is the implementation/worker agent.** Before any checkpoint is implemented, Codex writes a checkpoint-specific implementation plan with scope, files, tests, evidence, and acceptance criteria. Grok 4.6 implements that plan without expanding its scope. Codex then independently inspects the changes, runs or verifies the required tests, and compares the evidence with the checkpoint criteria. If the work passes, Codex updates this checkpoint map and the private maintainer project index, commits and pushes the accepted public-safe checkpoint outcome to `main`, and plans the next checkpoint. Private machine evidence, credentials, audio, transcripts, prompts, task content, and personal paths are excluded from the public commit. If the work fails or is incomplete, Codex writes a precise rework request for Grok and reviews the revision again; failed or unaccepted work is not represented as a completed-checkpoint commit. A worker report alone never completes a checkpoint, and a different implementation agent is not substituted without the user's approval.
@@ -83,11 +86,11 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-010 | Codex installation, process, package, and protocol discovery | Complete | CP-004 |
 | CP-011 | Deterministic Codex launch and session control | Complete | CP-010 |
 | CP-012 | Recent-task enumeration and stable task identity | Complete | CP-010 |
-| CP-013 | Exact create/open/verify task control | In progress — paginated resume unavailable; Stage C packet accepted, live approval required | CP-011, CP-012 |
-| CP-014 | Codex Voice start, ready, error, and stop detection | Pending | CP-013 |
+| CP-013 | Exact create/open/verify task control | Superseded for MVP — exact resume deferred; fresh-task-only path | CP-011, CP-012 |
+| CP-014 | Codex Voice start, ready, error, and stop detection | In progress through MVP-01 | CP-011 |
 | CP-015 | Fail-closed Codex adapter prototype | Pending | CP-014 |
 | CP-016 | Codex-control reliability qualification | Pending | CP-015 |
-| CP-020 | Test virtual microphone and licensing inventory | Ready | CP-004 |
+| CP-020 | Test virtual microphone and licensing inventory | In progress through MVP-01 | CP-004 |
 | CP-021 | Phone/sample PCM injection proof | Pending | CP-020 |
 | CP-022 | Process-specific Codex output capture proof | Pending | CP-020 |
 | CP-023 | Full-duplex local audio graph | Pending | CP-021, CP-022 |
@@ -107,8 +110,8 @@ Four feasibility tracks may be investigated independently after the baseline is 
 | CP-044 | Device pairing and ephemeral session-auth prototype | Pending | CP-003, CP-041 |
 | CP-045 | Remote reconnect, teardown, and network-roaming proof | Pending | CP-043, CP-044 |
 | CP-046 | User-owned remote-network qualification | Pending | CP-045 |
-| CP-050 | Gate F0 — feasibility review and architecture freeze | Blocked | CP-016, CP-026, CP-035, CP-046 |
-| CP-100 | Implementation repository, licensing baseline, and CI | Blocked | CP-050 |
+| CP-050 | Gate F0 — feasibility review and architecture freeze | Superseded for MVP by ADR 0003 | CP-016, CP-026, CP-035, CP-046 |
+| CP-100 | Implementation repository, licensing baseline, and CI | In progress through MVP implementation | ADR 0003 |
 | CP-101 | Versioned protocols and lifecycle state machine | Blocked | CP-100 |
 | CP-102 | Secure local IPC and companion skeleton | Blocked | CP-101 |
 | CP-103 | Codex, audio, phone, and provider simulators | Blocked | CP-102 |
