@@ -1,6 +1,6 @@
 # Windows audio spike (MVP-01)
 
-This prototype proves local playback, WASAPI loopback, and the installed VB-CABLE route on the reference PC. It does not record audio. It does not change Windows default devices. It does not start Codex Voice by itself; Hermes-controlled Codex/Voice startup is the next milestone.
+This prototype proves local playback, WASAPI loopback, the installed VB-CABLE route, and bounded physical-microphone forwarding on the reference PC. It does not record audio. It does not change Windows default devices. It does not start Codex Voice by itself; Hermes controls Codex and Voice.
 
 Python 3.13 via `py -3` is the runtime. Do not use the Hermes agent venv.
 
@@ -39,6 +39,14 @@ Play the tone while monitoring system-output loopback in memory:
 .\.venv\Scripts\python.exe bridge.py spike --seconds 1.0
 ```
 
+Forward a physical microphone to `CABLE Input` for a bounded local test. Use a physical capture index from `list`; never choose a loopback or `CABLE Output` row:
+
+```
+.\.venv\Scripts\python.exe bridge.py route-mic --source 7 --seconds 15
+```
+
+During the bounded run, Codex Voice reads the forwarded signal from `CABLE Output`. The command prints only a peak value and forwarded-frame count; it never saves audio.
+
 Start a bounded in-process loopback monitor. There is no background process and no PID kill:
 
 ```
@@ -64,7 +72,7 @@ Codex desktop on the reference PC is the store-signed `OpenAI.Codex` package. Ru
 
 ## Proven virtual-audio route
 
-Windows cannot inject PCM into a physical microphone, so the reference PC uses VB-CABLE. `CABLE Input` is the programmatic playback sink and `CABLE Output` is the capture endpoint that Codex Voice must use as its microphone. An in-memory test proved this route without saving audio. Selection and Voice-ready verification now belong to the Hermes/Codex control milestone.
+Windows cannot inject PCM into a physical microphone, so the reference PC uses VB-CABLE. `CABLE Input` is the programmatic playback sink and `CABLE Output` is the capture endpoint that Codex Voice must use as its microphone. Selecting `CABLE Output` in Codex does not automatically route a physical microphone into it: the bridge must forward the chosen microphone into `CABLE Input`. All forwarding is in memory.
 
 ## External dependency
 

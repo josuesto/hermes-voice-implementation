@@ -1,8 +1,9 @@
 """Local Windows audio spike for Codex Voice.
 
 Lists capture and playback endpoints, plays a short 440 Hz test tone,
-and monitors system-output loopback in memory. Audio bytes are never
-written to disk. This spike does not change Windows default devices.
+monitors system-output loopback, and can forward a selected physical
+microphone into VB-CABLE. Audio bytes are never written to disk. This
+spike does not change Windows default devices.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ DEFAULT_SECONDS = 0.8
 SAMPLE_RATE = 48000
 INJECTION_CLASSES = frozenset({"vb-cable", "voicemeeter", "virtual-other"})
 STOP_WAIT_SECONDS = 2.0
+CABLE_INPUT_NAME = "CABLE Input (VB-Audio Virtual Cable)"
 
 _SNAPSHOT: dict[str, Any] | None = None
 _MONITOR_ACTIVE = False
@@ -242,6 +244,74 @@ def _play_tone(seconds: float, device_index: int | None = None) -> None:
         player.play(play)
 
 
+def _route_devices(source_index: int) -> tuple[Any, Any]:
+    import soundcard as sc
+
+    microphones = list(sc.all_microphones(include_loopback=True))
+    if source_index < 0 or source_index >= len(microphones):
+        raise RuntimeError("Capture device index is out of range.")
+    source = microphones[source_index]
+    source_class = classify_name(str(source.name), bool(source.isloopback))
+    if bool(source.isloopback) or source_class != "physical-or-other":
+        raise RuntimeError("Source must be a physical microphone, not loopback or virtual cable.")
+    sinks = [speaker for speaker in sc.all_speakers() if str(speaker.name) == CABLE_INPUT_NAME]
+    if len(sinks) != 1:
+        raise RuntimeError("Exactly one standard VB-CABLE Input playback endpoint is required.")
+    return source, sinks[0]
+
+
+def _adapt_channels(chunk: Any, output_channels: int) -> Any:
+    import numpy as np
+
+    audio = np.asarray(chunk, dtype=np.float32)
+    if audio.ndim == 1:
+        audio = audio[:, np.newaxis]
+    if audio.ndim != 2 or audio.shape[1] < 1:
+        raise RuntimeError("Microphone returned an unsupported audio shape.")
+    if output_channels == audio.shape[1]:
+        return audio
+    if output_channels == 1:
+        return np.mean(audio, axis=1, keepdims=True, dtype=np.float32)
+    if audio.shape[1] == 1:
+        return np.repeat(audio, output_channels, axis=1)
+    if audio.shape[1] > output_channels:
+        return audio[:, :output_channels]
+    repeats = (output_channels + audio.shape[1] - 1) // audio.shape[1]
+    return np.tile(audio, (1, repeats))[:, :output_channels]
+
+
+def cmd_route_mic(source: int, seconds: float) -> int:
+    """Forward one physical capture endpoint to standard VB-CABLE in memory."""
+    import numpy as np
+
+    if seconds <= 0:
+        print("running=false error=seconds_required")
+        return 2
+    microphone, cable_input = _route_devices(source)
+    input_channels = max(1, min(2, int(microphone.channels)))
+    output_channels = max(1, min(2, int(cable_input.channels)))
+    block_frames = int(SAMPLE_RATE * 0.02)
+    deadline = time.monotonic() + seconds
+    frames = 0
+    peak = 0.0
+    print("running=true route=physical-mic-to-vb-cable saved_audio=false")
+    with (
+        microphone.recorder(samplerate=SAMPLE_RATE, channels=input_channels) as recorder,
+        cable_input.player(samplerate=SAMPLE_RATE, channels=output_channels) as player,
+    ):
+        while time.monotonic() < deadline:
+            chunk = recorder.record(numframes=block_frames)
+            peak = max(peak, float(np.max(np.abs(chunk))))
+            frames += int(chunk.shape[0])
+            player.play(_adapt_channels(chunk, output_channels))
+            del chunk
+    print(
+        f"running=false route=physical-mic-to-vb-cable peak_rms_proxy={round(peak, 6)} "
+        f"frames_forwarded={frames} saved_audio=false"
+    )
+    return 0
+
+
 def cmd_list(sanitize: bool) -> int:
     rows = _query_devices()
     printable = [sanitize_row(row) if sanitize else {k: v for k, v in row.items() if not k.startswith("_")} for row in rows]
@@ -425,6 +495,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub.add_parser("restore", help="Restore defaults this process changed.")
     spike_p = sub.add_parser("spike", help="Play a test tone while monitoring loopback.")
     spike_p.add_argument("--seconds", type=float, default=DEFAULT_SECONDS)
+    route_p = sub.add_parser(
+        "route-mic", help="Forward one physical capture device to standard VB-CABLE Input."
+    )
+    route_p.add_argument("--source", type=int, required=True, help="Capture index from list output.")
+    route_p.add_argument("--seconds", type=float, required=True, help="Bounded run duration.")
     return parser.parse_args(argv)
 
 
@@ -445,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_restore()
     if command == "spike":
         return cmd_spike(seconds=float(args.seconds))
+    if command == "route-mic":
+        return cmd_route_mic(source=int(args.source), seconds=float(args.seconds))
     raise SystemExit(f"unknown command {command}")
 
 

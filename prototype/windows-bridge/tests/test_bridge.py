@@ -42,6 +42,21 @@ class ToneTests(unittest.TestCase):
         tone = bridge.generate_tone(0.1, samplerate=8000)
         self.assertGreater(float(abs(tone).max()), 0.05)
 
+    def test_mono_input_is_duplicated_for_stereo_cable(self):
+        import numpy as np
+
+        source = np.array([[0.25], [-0.5]], dtype=np.float32)
+        routed = bridge._adapt_channels(source, 2)
+        self.assertEqual(routed.shape, (2, 2))
+        np.testing.assert_array_equal(routed[:, 0], routed[:, 1])
+
+    def test_stereo_input_is_mixed_for_mono_sink(self):
+        import numpy as np
+
+        source = np.array([[0.25, 0.75], [-0.5, 0.5]], dtype=np.float32)
+        routed = bridge._adapt_channels(source, 1)
+        np.testing.assert_allclose(routed[:, 0], [0.5, 0.0])
+
 
 class ListSanitizeTests(unittest.TestCase):
     def test_sanitize_row_drops_name(self):
@@ -128,6 +143,12 @@ class ProcessSafetyTests(unittest.TestCase):
         mock_kill.assert_not_called()
         mock_run.assert_not_called()
         mock_popen.assert_not_called()
+
+    def test_route_requires_positive_duration_before_device_access(self):
+        with patch.object(bridge, "_route_devices") as route_devices:
+            code = bridge.cmd_route_mic(source=7, seconds=0)
+        self.assertEqual(code, 2)
+        route_devices.assert_not_called()
 
 
 if __name__ == "__main__":
