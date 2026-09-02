@@ -1,5 +1,2 @@
-aiohttp>=3.13,<4
-aiortc>=1.15,<2
-av>=17,<18
-numpy>=2,<3
-sounddevice>=0.5,<1
+# Canonical extras live with the bundled companion runtime.
+-r ../../companion/browser_call/requirements.txt

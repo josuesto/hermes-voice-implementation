@@ -1,4 +1,5 @@
 import asyncio
+import socket
 import subprocess
 import sys
 import time
@@ -10,11 +11,12 @@ import numpy as np
 from aiohttp.test_utils import TestClient, TestServer
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+REPO = Path(__file__).resolve().parents[3]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
-import server
+from companion.browser_call import server
+from companion.browser_call.host import OwnedBrowserHost
 
 
 class DeviceSelectionTests(unittest.TestCase):
@@ -126,8 +128,9 @@ class PageContractTests(unittest.TestCase):
         cls.js = (server.STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
     def test_minimal_controls_exist(self):
-        for label in ("Mute microphone", "Mute Codex audio", "End session"):
+        for label in ("Mute microphone", "Mute Codex audio", "Leave call"):
             self.assertIn(label, self.html)
+        self.assertNotIn("End session", self.html)
 
     def test_feature_detection_and_no_hardcoded_ice_server(self):
         self.assertIn("RTCPeerConnection", self.js)
@@ -276,9 +279,7 @@ class WebRtcIntegrationTests(unittest.IsolatedAsyncioTestCase):
         FakeProcessSource.instances.clear()
         self.call_server = server.BrowserCallServer(
             sink_factory=FakeSink,
-            outgoing_factory=lambda: server.CodexProcessAudioTrack(
-                source_factory=FakeProcessSource
-            ),
+            source_factory=FakeProcessSource,
         )
         self.client = TestClient(TestServer(server.build_app(self.call_server)))
         await self.client.start_server()
@@ -328,7 +329,86 @@ class WebRtcIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(end_response.status, 200)
         self.assertFalse(self.call_server.active)
         self.assertTrue(FakeSink.instances[0].closed)
+        self.assertFalse(FakeProcessSource.instances[0].closed)
+        page = await self.client.get("/")
+        self.assertEqual(page.status, 200)
+
+    async def test_leave_call_allows_reconnect_without_stopping_capture(self):
+        incoming_track = server.TestToneTrack()
+        self.peer.addTrack(incoming_track)
+        offer = await self.peer.createOffer()
+        await self.peer.setLocalDescription(offer)
+        first = await self.client.post(
+            "/offer",
+            json={"sdp": self.peer.localDescription.sdp, "type": self.peer.localDescription.type},
+        )
+        self.assertEqual(first.status, 200)
+        self.assertTrue(FakeProcessSource.instances[0].started)
+        leave = await self.client.post("/end")
+        self.assertEqual(leave.status, 200)
+        self.assertFalse(self.call_server.active)
+        self.assertFalse(FakeProcessSource.instances[0].closed)
+
+        peer2 = RTCPeerConnection()
+        peer2.addTrack(server.TestToneTrack())
+        offer2 = await peer2.createOffer()
+        await peer2.setLocalDescription(offer2)
+        second = await self.client.post(
+            "/offer",
+            json={"sdp": peer2.localDescription.sdp, "type": peer2.localDescription.type},
+        )
+        self.assertEqual(second.status, 200)
+        self.assertTrue(self.call_server.active)
+        self.assertEqual(len(FakeProcessSource.instances), 1)
+        self.assertFalse(FakeProcessSource.instances[0].closed)
+        await peer2.close()
+
+
+class CaptureShutdownTests(unittest.IsolatedAsyncioTestCase):
+    async def test_full_close_releases_capture_after_leave(self):
+        FakeProcessSource.instances.clear()
+        call_server = server.BrowserCallServer(source_factory=FakeProcessSource)
+        call_server._capture = FakeProcessSource()
+        call_server._capture.start()
+        await call_server.leave()
+        self.assertFalse(FakeProcessSource.instances[0].closed)
+        await call_server.close()
         self.assertTrue(FakeProcessSource.instances[0].closed)
+
+
+def _ephemeral_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+class OwnedHostTests(unittest.TestCase):
+    def test_start_stop_and_port_conflict(self):
+        occupied = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        occupied.bind(("127.0.0.1", 0))
+        port = int(occupied.getsockname()[1])
+        blocked = OwnedBrowserHost(port=port)
+        self.assertFalse(blocked.start())
+        self.assertEqual(blocked.error(), "browser_start_failed")
+        occupied.close()
+
+        host = OwnedBrowserHost(port=_ephemeral_port())
+        self.assertTrue(host.start())
+        self.assertTrue(host.is_running())
+        self.assertTrue(host.stop())
+        self.assertFalse(host.is_running())
+
+    def test_dead_server_is_not_running(self):
+        host = OwnedBrowserHost(port=_ephemeral_port())
+        self.assertTrue(host.start())
+        loop = host._loop
+        thread = host._thread
+        self.assertIsNotNone(loop)
+        self.assertIsNotNone(thread)
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=8)
+        self.assertFalse(host.is_running())
+        host.stop()
 
 
 if __name__ == "__main__":

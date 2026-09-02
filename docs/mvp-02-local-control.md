@@ -1,16 +1,17 @@
 # MVP-02 local Hermes Codex Voice control
 
-Development slice for same-host Windows. Phone and browser work are out of scope. App Server and CP-013 stable-ID resume stay out of scope. Do not touch the preserved CP-013 disposable task.
+Development slice for same-host Windows. Cloudflare, remote access, pairing, and Discord stay out of scope. App Server and CP-013 stable-ID resume stay out of scope. Do not touch the preserved CP-013 disposable task.
 
-Hermes `computer_use` owns visible Codex UI. Companion tools own preflight, packaged launch, the configured physical-microphone-to-VB-CABLE stream, session state, and cleanup. A Telegram request such as start Codex Voice should load the indexed skill without a slash command.
+Hermes `computer_use` owns visible Codex UI. Companion tools own preflight, packaged Codex launch, one audio transport, session state, and cleanup. A Telegram request such as start Codex Voice should load the indexed skill without a slash command.
 
 ## Layout
 
 - `skills/hermes_voice/SKILL.md` is the indexed skill source of truth.
 - `plugin/hermes_voice/` is the Hermes plugin (`register(ctx)` with `ctx.register_tool`). Its SKILL.md copy must match the indexed file.
-- `companion/codex_control.py` is the Windows companion: session lock, packaged Codex activation, unique window proof, endpoint presence, continuous WASAPI microphone routing, and `starting`/`ready`/`inactive` state.
+- `companion/codex_control.py` is the Windows companion: session lock, packaged Codex activation, unique window proof, endpoint presence, transport ownership, and `starting`/`ready`/`inactive` state.
+- `companion/browser_call/` is the loopback WebRTC server and static call page. `companion/process_loopback/` is the Codex process-capture helper. Copying `companion` during plugin install includes both.
 - Status values: `inactive`, `starting`, `ready`, `stopping`, `failed`.
-- Tool JSON keys: `ok`, `status`, and `error` when failed.
+- Tool JSON keys: `ok`, `status`, `error` when failed, and `url` only for an active browser transport. The only allowed URL is `http://127.0.0.1:8765/`.
 
 ## Development install
 
@@ -32,7 +33,7 @@ hermes plugins enable hermes_voice
 
 Restart the Hermes gateway after enable so Telegram can see the tools. The indexed skill `hermes_voice` is what a normal request should load. The plugin-registered copy is fallback only.
 
-Python extras used by the companion: `soundcard`, `sounddevice`, `numpy`, and `comtypes`. Configure one physical source microphone without changing Windows defaults:
+Python extras used by physical-mic transport: `soundcard`, `sounddevice`, `numpy`, and `comtypes`. Browser extras are optional and listed in `companion/browser_call/SETUP.md`. Configure one physical source microphone without changing Windows defaults:
 
 ```json
 {
@@ -44,27 +45,29 @@ Save that as `%HERMES_HOME%\config\hermes_voice.json` (normally `%LOCALAPPDATA%\
 
 ## Tests
 
-Audio spike (18) plus companion/plugin/skill fakes (35):
+Audio spike, companion/plugin/skill fakes, browser-call, and the native helper:
 
 ```
 .\prototype\windows-bridge\.venv\Scripts\python.exe -m unittest discover -s prototype\windows-bridge\tests -v
 .\prototype\windows-bridge\.venv\Scripts\python.exe -m unittest discover -s companion -v
+.\prototype\windows-bridge\.venv\Scripts\python.exe -m unittest discover -s prototype\browser-call\tests -v
+.\companion\process_loopback\build-helper.ps1
 ```
 
 ## Tool sequence
 
 New:
 
-1. `codex_voice_start` `mode=new` starts the configured physical-microphone route and returns `starting`.
+1. `codex_voice_start` with `mode=new` and `transport=physical_mic` or `transport=browser` returns `starting`.
 2. App-scoped `computer_use` creates the fresh conversation.
 3. Hermes reads the visible model and effort choices, asks the user, selects and verifies both.
 4. App-scoped `computer_use` starts Voice and verifies it is visible.
 5. Hermes re-checks both selectors after Voice startup and corrects any automatic change.
-6. `codex_voice_confirm` with all three verification flags true returns `ready`. `CABLE Output (VB-Audio Virtual Cable)` is a one-time Codex Settings choice, not a per-call control.
+6. `codex_voice_confirm` with all three verification flags true returns `ready`. Browser transport includes `url` only then. `CABLE Output (VB-Audio Virtual Cable)` is a one-time Codex Settings choice, not a per-call control.
 
 Resume:
 
-1. `codex_voice_start` `mode=current` starts the audio route and returns `starting` (launch first when Codex is closed).
+1. `codex_voice_start` with `mode=current` and the inferred transport returns `starting` (launch first when Codex is closed).
 2. App-scoped `computer_use` lists up to ten visible names if needed, user chooses duplicates, then verifies the title is selected or open.
 3. Hermes reads the visible model and effort choices, asks the user, selects and verifies both.
 4. App-scoped `computer_use` starts Voice and verifies Voice.
@@ -74,7 +77,7 @@ Resume:
 Stop:
 
 1. App-scoped `computer_use` ends Voice and a post-action capture shows it ended.
-2. `codex_voice_stop` cooperatively stops the audio route and returns `inactive`. The Codex task remains open.
+2. `codex_voice_stop` cooperatively stops the owned transport and returns `inactive`. The Codex task remains open.
 
 ## Acceptance result — 2026-09-02
 
@@ -91,8 +94,9 @@ Acceptance procedure:
 ## Limits
 
 - One owned Voice session.
-- `codex_voice_start` requires `mode=new` or `mode=current` and returns `starting` unless already `ready`.
+- `codex_voice_start` requires `mode` and `transport`. Same-transport start may be idempotent. Switching transport while `starting` or `ready` fails until stop.
 - `codex_voice_confirm` is the only path to `ready`. Voice, model, and effort verification flags must all be true.
 - Each start requires an explicit model and effort choice. Hermes discovers visible options rather than hardcoding them and re-checks both after Voice starts.
 - Missing CABLE endpoints or missing configured physical source fail closed. Codex must be configured once to use CABLE Output; the runtime does not try to change that setting.
-- No force-kill of Codex. Stop releases companion state and the audio stream only.
+- Browser extras missing return `browser_dependency_missing` without breaking physical-mic loading.
+- No force-kill of Codex. Stop releases companion state and the owned transport only.

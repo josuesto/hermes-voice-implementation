@@ -37,10 +37,17 @@ ERRORS = (
     "audio_bridge_failed",
     "model_not_verified",
     "effort_not_verified",
+    "transport_required",
+    "transport_conflict",
+    "browser_dependency_missing",
+    "browser_start_failed",
 )
-RESULT_KEYS = ("ok", "status", "error")
+RESULT_KEYS = ("ok", "status", "error", "url")
 RESUME_KEYS = frozenset({"task_id", "thread_id", "title", "resume", "task_title"})
 START_MODES = ("new", "current")
+START_TRANSPORTS = ("physical_mic", "browser")
+BROWSER_URL = "http://127.0.0.1:8765/"
+ALLOWED_URLS = frozenset({BROWSER_URL})
 CABLE_MIC_NAME = "CABLE Output (VB-Audio Virtual Cable)"
 CABLE_INPUT_NAME = "CABLE Input (VB-Audio Virtual Cable)"
 SOURCE_MIC_ENV = "HERMES_VOICE_SOURCE_MIC"
@@ -91,6 +98,13 @@ class CableMic(Protocol):
 
 
 class AudioRouter(Protocol):
+    def start(self) -> bool: ...
+    def is_running(self) -> bool: ...
+    def stop(self) -> bool: ...
+    def error(self) -> str | None: ...
+
+
+class BrowserTransport(Protocol):
     def start(self) -> bool: ...
     def is_running(self) -> bool: ...
     def stop(self) -> bool: ...
@@ -157,13 +171,17 @@ def pick_unique_enabled(candidates: list[dict[str, Any]]) -> dict[str, Any] | No
     return hits[0]
 
 
-def allowlisted(ok: bool, status: str, error: str | None = None) -> dict[str, Any]:
+def allowlisted(
+    ok: bool, status: str, error: str | None = None, url: str | None = None
+) -> dict[str, Any]:
     if status not in STATUSES:
         status = "failed"
         error = error or "voice_not_ready"
     payload: dict[str, Any] = {"ok": bool(ok), "status": status}
     if error:
         payload["error"] = error if error in ERRORS else "voice_not_ready"
+    if url in ALLOWED_URLS:
+        payload["url"] = url
     return {key: payload[key] for key in RESULT_KEYS if key in payload}
 
 
@@ -172,6 +190,7 @@ class Session:
     status: str = "inactive"
     owned: bool = False
     created_fresh_task: bool = False
+    transport: str | None = None
 
 
 class CodexVoiceController:
@@ -183,6 +202,7 @@ class CodexVoiceController:
         ui: DesktopUi,
         cable: CableMic,
         router: AudioRouter,
+        browser: BrowserTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
         ready_wait_s: float = READY_WAIT_SECONDS,
         stop_wait_s: float = STOP_WAIT_SECONDS,
@@ -192,76 +212,118 @@ class CodexVoiceController:
         self._ui = ui
         self._cable = cable
         self._router = router
+        self._browser = browser or StaticBrowserTransport()
         self._sleep = sleep
         self._ready_wait_s = ready_wait_s
         self._stop_wait_s = stop_wait_s
         self.session = Session()
 
     def status(self) -> dict[str, Any]:
-        if self.session.status in ("starting", "ready") and not self._router.is_running():
+        if self.session.status in ("starting", "ready") and not self._bridge_running():
             self.session.status = "failed"
             self.session.owned = False
             return allowlisted(False, "failed", "audio_bridge_failed")
-        return allowlisted(self.session.status != "failed", self.session.status)
+        return self._result(self.session.status != "failed", self.session.status)
 
     def start(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
         if RESUME_KEYS.intersection(params):
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "resume_unsupported")
         mode = params.get("mode")
         if mode not in START_MODES:
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "mode_required")
+        transport = params.get("transport")
+        if transport not in START_TRANSPORTS:
+            self.session.status = "failed"
+            self.session.transport = None
+            return allowlisted(False, "failed", "transport_required")
         if not self._guard.is_windows():
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "not_windows")
         if not self._guard.is_interactive_unlocked():
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "session_locked")
-        if self.session.owned and self.session.status == "ready":
-            if self._router.is_running():
-                return allowlisted(True, "ready")
-            self.session.status = "failed"
-            self.session.owned = False
-            return allowlisted(False, "failed", "audio_bridge_failed")
+        if self.session.status in ("starting", "ready"):
+            if self.session.transport != transport:
+                return allowlisted(False, self.session.status, "transport_conflict")
+            if not self._bridge_running():
+                self.session.status = "failed"
+                self.session.owned = False
+                return allowlisted(False, "failed", "audio_bridge_failed")
+            return self._result(
+                True,
+                self.session.status,
+                include_url=self.session.status == "ready" and transport == "browser",
+            )
         if not self._cable.output_present():
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "cable_mic_missing")
 
         self.session.status = "starting"
+        self.session.transport = transport
         if not self._launcher.desktop_present():
             if not self._launcher.activate():
                 self.session.status = "failed"
+                self.session.transport = None
                 return allowlisted(False, "failed", "launch_failed")
             if not self._wait(lambda: self._ui.main_window_present(), self._ready_wait_s):
                 self.session.status = "failed"
+                self.session.transport = None
                 return allowlisted(False, "failed", "launch_failed")
         elif not self._ui.main_window_present():
             if not self._launcher.activate() or not self._ui.main_window_present():
                 self.session.status = "failed"
+                self.session.transport = None
                 return allowlisted(False, "failed", "launch_failed")
 
-        if not self._router.start():
-            self.session.status = "failed"
-            return allowlisted(False, "failed", self._router.error() or "audio_bridge_failed")
+        if transport == "browser":
+            if self._router.is_running():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", "transport_conflict")
+            if not self._browser.start():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", self._browser.error() or "browser_start_failed")
+        else:
+            if self._browser.is_running():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", "transport_conflict")
+            if not self._router.start():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", self._router.error() or "audio_bridge_failed")
 
         self.session.created_fresh_task = mode == "new"
         self.session.owned = False
         self.session.status = "starting"
-        return allowlisted(True, "starting")
+        return self._result(True, "starting", include_url=False)
 
     def confirm(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
         if RESUME_KEYS.intersection(params):
             self.session.status = "failed"
+            self.session.transport = None
             return allowlisted(False, "failed", "resume_unsupported")
         if self.session.owned and self.session.status == "ready":
-            return allowlisted(True, "ready")
+            if not self._bridge_running():
+                self.session.status = "failed"
+                self.session.owned = False
+                return allowlisted(False, "failed", "audio_bridge_failed")
+            return self._result(True, "ready", include_url=self.session.transport == "browser")
         if self.session.status != "starting":
             return allowlisted(False, "failed", "voice_not_ready")
-        if not self._router.is_running():
+        if not self._bridge_running():
             self.session.status = "failed"
+            self.session.owned = False
             return allowlisted(False, "failed", "audio_bridge_failed")
         if params.get("voice_visible") is not True:
             return allowlisted(False, "starting", "voice_not_ready")
@@ -271,21 +333,54 @@ class CodexVoiceController:
             return allowlisted(False, "starting", "effort_not_verified")
         self.session.owned = True
         self.session.status = "ready"
-        return allowlisted(True, "ready")
+        return self._result(True, "ready", include_url=self.session.transport == "browser")
 
     def stop(self) -> dict[str, Any]:
         if self.session.status == "inactive" and not self.session.owned:
-            if self._router.is_running() and not self._router.stop():
+            if not self._stop_bridges():
                 self.session.status = "failed"
                 return allowlisted(False, "failed", "stop_failed")
+            self.session.transport = None
             return allowlisted(True, "inactive")
         self.session.status = "stopping"
-        if not self._router.stop():
+        if not self._stop_bridges():
             self.session.status = "failed"
             return allowlisted(False, "failed", "stop_failed")
         self.session.owned = False
+        self.session.transport = None
         self.session.status = "inactive"
         return allowlisted(True, "inactive")
+
+    def _bridge_running(self) -> bool:
+        if self.session.transport == "browser":
+            return self._browser.is_running()
+        if self.session.transport == "physical_mic":
+            return self._router.is_running()
+        return False
+
+    def _stop_bridges(self) -> bool:
+        ok = True
+        if self.session.transport == "browser" or self._browser.is_running():
+            ok = self._browser.stop() and ok
+        if self.session.transport == "physical_mic" or self._router.is_running():
+            ok = self._router.stop() and ok
+        return ok
+
+    def _result(
+        self,
+        ok: bool,
+        status: str,
+        error: str | None = None,
+        *,
+        include_url: bool | None = None,
+    ) -> dict[str, Any]:
+        url = None
+        browser_active = self.session.transport == "browser" and self._browser.is_running()
+        if include_url is True:
+            url = BROWSER_URL if browser_active else None
+        elif include_url is None and browser_active and status in ("starting", "ready"):
+            url = BROWSER_URL
+        return allowlisted(ok, status, error, url=url)
 
     def _wait(self, predicate: Callable[[], bool], budget: float) -> bool:
         deadline = time.monotonic() + budget
@@ -423,6 +518,87 @@ class StaticAudioRouter:
 
     def error(self) -> str | None:
         return None if self.running else self.failure
+
+
+class StaticBrowserTransport:
+    def __init__(
+        self,
+        start_ok: bool = True,
+        stop_ok: bool = True,
+        failure: str = "browser_start_failed",
+    ) -> None:
+        self.start_ok = start_ok
+        self.stop_ok = stop_ok
+        self.running = False
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.failure = failure
+
+    def start(self) -> bool:
+        self.start_calls += 1
+        self.running = self.start_ok
+        return self.running
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def stop(self) -> bool:
+        self.stop_calls += 1
+        if not self.stop_ok:
+            return False
+        self.running = False
+        return True
+
+    def error(self) -> str | None:
+        return None if self.running else self.failure
+
+
+class WinBrowserTransport:
+    """Lazy owner of the loopback browser-call host."""
+
+    def __init__(self) -> None:
+        self._host: Any = None
+        self._last_error: str | None = None
+
+    def start(self) -> bool:
+        if self.is_running():
+            return True
+        try:
+            from companion.browser_call.host import OwnedBrowserHost
+        except ImportError:
+            self._last_error = "browser_dependency_missing"
+            self._host = None
+            return False
+        host = OwnedBrowserHost()
+        if not host.start():
+            self._last_error = host.error() or "browser_start_failed"
+            host.stop()
+            self._host = None
+            return False
+        self._host = host
+        self._last_error = None
+        return True
+
+    def is_running(self) -> bool:
+        host = self._host
+        return host is not None and host.is_running()
+
+    def stop(self) -> bool:
+        host, self._host = self._host, None
+        if host is None:
+            return True
+        stopped = host.stop()
+        if not stopped:
+            self._last_error = host.error() or "audio_bridge_failed"
+        return stopped
+
+    def error(self) -> str | None:
+        if self._last_error:
+            return self._last_error
+        host = self._host
+        if host is not None:
+            return host.error()
+        return None
 
 
 class WinSessionGuard:
@@ -1088,6 +1264,7 @@ def build_windows_controller() -> CodexVoiceController:
         ui=WinDesktopUi(),
         cable=WinCableMic(),
         router=WinAudioRouter(),
+        browser=WinBrowserTransport(),
     )
 
 
@@ -1104,4 +1281,12 @@ def set_controller(controller: CodexVoiceController | None) -> None:
 
 
 def dumps_result(result: dict[str, Any]) -> str:
-    return json.dumps(allowlisted(result.get("ok", False), result.get("status", "failed"), result.get("error")), ensure_ascii=False)
+    return json.dumps(
+        allowlisted(
+            result.get("ok", False),
+            result.get("status", "failed"),
+            result.get("error"),
+            result.get("url"),
+        ),
+        ensure_ascii=False,
+    )

@@ -13,7 +13,7 @@ _EMPTY_PARAMS: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-_MODE_PARAMS: Dict[str, Any] = {
+_START_PARAMS: Dict[str, Any] = {
     "type": "object",
     "properties": {
         "mode": {
@@ -24,9 +24,18 @@ _MODE_PARAMS: Dict[str, Any] = {
                 "with computer_use. current: preflight then the skill uses the "
                 "conversation already selected in Codex."
             ),
-        }
+        },
+        "transport": {
+            "type": "string",
+            "enum": ["physical_mic", "browser"],
+            "description": (
+                "physical_mic: route the configured PC microphone into VB-CABLE. "
+                "browser: start the loopback-only WebRTC call server at "
+                "http://127.0.0.1:8765/ and do not start the physical microphone router."
+            ),
+        },
     },
-    "required": ["mode"],
+    "required": ["mode", "transport"],
     "additionalProperties": False,
 }
 
@@ -62,14 +71,17 @@ START_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_start",
     "description": (
         "On this Windows PC, preflight the unlocked session, launch the store-signed "
-        "Codex desktop app if needed, prove VB-CABLE capture is present, and start the "
-        "configured physical-microphone-to-VB-CABLE stream. Returns starting. Does not "
-        "click Voice or create a task. After computer_use verifies the user's model and "
-        "effort choices survived Voice startup, call codex_voice_confirm. "
+        "Codex desktop app if needed, prove VB-CABLE capture is present, and start one "
+        "audio transport. transport=physical_mic starts the configured "
+        "physical-microphone-to-VB-CABLE stream. transport=browser starts the "
+        "loopback-only WebRTC server at http://127.0.0.1:8765/ and does not start the "
+        "physical microphone router. Returns starting. Does not click Voice or create "
+        "a task. After computer_use verifies the user's model and effort choices "
+        "survived Voice startup, call codex_voice_confirm. "
         "mode=new is a new conversation. mode=current is the selected conversation. "
-        "Does not accept task IDs, titles, or App Server resume keys."
+        "Does not accept task IDs, titles, URLs, or App Server resume keys."
     ),
-    "parameters": _MODE_PARAMS,
+    "parameters": _START_PARAMS,
 }
 
 CONFIRM_SCHEMA: Dict[str, Any] = {
@@ -79,7 +91,8 @@ CONFIRM_SCHEMA: Dict[str, Any] = {
         "user-selected model and reasoning effort remain selected after Voice startup. "
         "CABLE Output (VB-Audio Virtual Cable) is configured once in Codex Settings, "
         "not selected per call. Call only while status is starting. All three verification "
-        "flags must be true. "
+        "flags must be true. For browser transport, the allowlisted localhost url is "
+        "returned only after status is ready. "
         "Does not inspect conversation contents."
     ),
     "parameters": _CONFIRM_PARAMS,
@@ -89,7 +102,8 @@ STATUS_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_status",
     "description": (
         "Return the owned Codex Voice lifecycle state: inactive, starting, "
-        "ready, stopping, or failed. No task content is returned."
+        "ready, stopping, or failed. For an active browser transport the allowlisted "
+        "localhost url may be included. No task content is returned."
     ),
     "parameters": _EMPTY_PARAMS,
 }
@@ -98,8 +112,8 @@ STOP_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_stop",
     "description": (
         "Clear companion Voice session state after computer_use ended Voice and "
-        "verified it ended. Cooperatively stops the microphone-to-VB-CABLE stream. "
-        "Leaves the Codex task open. Does not delete, cancel, "
+        "verified it ended. Cooperatively stops the physical microphone router or the "
+        "owned browser-call server. Leaves the Codex task open. Does not delete, cancel, "
         "archive, or close the task."
     ),
     "parameters": _EMPTY_PARAMS,

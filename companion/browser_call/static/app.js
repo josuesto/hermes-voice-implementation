@@ -117,7 +117,7 @@ endButton.addEventListener("click", async () => {
   await closeLocal();
   resetUi();
   endButton.disabled = false;
-  setStatus("Session ended");
+  setStatus("Call left. You can start the call again.");
 });
 
 if (!supported()) {

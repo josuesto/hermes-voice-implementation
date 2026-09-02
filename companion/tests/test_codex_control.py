@@ -9,8 +9,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from companion.codex_control import (  # noqa: E402
+    BROWSER_URL,
     CodexVoiceController,
     StaticAudioRouter,
+    StaticBrowserTransport,
     StaticCable,
     StaticGuard,
     StaticLauncher,
@@ -19,6 +21,7 @@ from companion.codex_control import (  # noqa: E402
     WtsLock,
     RESULT_KEYS,
     RESUME_KEYS,
+    allowlisted,
     classify_wts_session,
     pick_unique_enabled,
 )
@@ -28,22 +31,30 @@ PLUGIN_SKILL = ROOT / "plugin" / "hermes_voice" / "SKILL.md"
 
 
 def _controller(
-    router: StaticAudioRouter | None = None, **ui_kw
+    router: StaticAudioRouter | None = None,
+    browser: StaticBrowserTransport | None = None,
+    **ui_kw,
 ) -> tuple[CodexVoiceController, StaticUi, StaticLauncher]:
     ui = StaticUi(**ui_kw)
     launcher = StaticLauncher(present=True)
     router = router or StaticAudioRouter()
+    browser = browser or StaticBrowserTransport()
     ctrl = CodexVoiceController(
         guard=StaticGuard(),
         launcher=launcher,
         ui=ui,
         cable=StaticCable(True),
         router=router,
+        browser=browser,
         sleep=lambda _s: None,
         ready_wait_s=0.0,
         stop_wait_s=0.0,
     )
     return ctrl, ui, launcher
+
+
+def _start(ctrl: CodexVoiceController, mode: str = "new", transport: str = "physical_mic"):
+    return ctrl.start({"mode": mode, "transport": transport})
 
 
 def _confirm(ctrl: CodexVoiceController) -> dict:
@@ -55,16 +66,16 @@ def _confirm(ctrl: CodexVoiceController) -> dict:
 class StartStatusStopTests(unittest.TestCase):
     def test_start_ready_is_idempotent(self):
         ctrl, ui, _launcher = _controller()
-        first = ctrl.start({"mode": "new"})
+        first = _start(ctrl)
         self.assertEqual(first, {"ok": True, "status": "starting"})
         self.assertEqual(_confirm(ctrl), {"ok": True, "status": "ready"})
-        second = ctrl.start({"mode": "new"})
+        second = _start(ctrl)
         self.assertEqual(second, {"ok": True, "status": "ready"})
         self.assertEqual(ui.new_task_calls, 0)
 
     def test_conflicting_unowned_voice_does_not_block_preflight(self):
         ctrl, ui, _launcher = _controller(unowned_voice=True)
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result, {"ok": True, "status": "starting"})
         self.assertEqual(ui.new_task_calls, 0)
 
@@ -78,14 +89,14 @@ class StartStatusStopTests(unittest.TestCase):
     def test_missing_cable_fails(self):
         ctrl, ui, launcher = _controller()
         ctrl._cable = StaticCable(False)
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result["error"], "cable_mic_missing")
         self.assertEqual(ui.new_task_calls, 0)
         self.assertEqual(launcher.activate_calls, 0)
 
     def test_false_voice_confirmation_keeps_starting(self):
         ctrl, ui, _launcher = _controller()
-        ctrl.start({"mode": "new"})
+        _start(ctrl)
         result = ctrl.confirm(
             {"voice_visible": False, "model_verified": True, "effort_verified": True}
         )
@@ -97,7 +108,7 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_stop_leaves_task_and_does_not_kill(self):
         ctrl, ui, _launcher = _controller()
-        ctrl.start({"mode": "new"})
+        _start(ctrl)
         _confirm(ctrl)
         result = ctrl.stop()
         self.assertEqual(result, {"ok": True, "status": "inactive"})
@@ -109,20 +120,20 @@ class StartStatusStopTests(unittest.TestCase):
     def test_locked_session_refuses(self):
         ctrl, ui, _launcher = _controller()
         ctrl._guard = StaticGuard(windows=True, unlocked=False)
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result["error"], "session_locked")
         self.assertEqual(ui.new_task_calls, 0)
 
     def test_non_windows_refuses(self):
         ctrl, ui, _launcher = _controller()
         ctrl._guard = StaticGuard(windows=False, unlocked=True)
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result["error"], "not_windows")
         self.assertEqual(ui.new_task_calls, 0)
 
     def test_status_keys_are_allowlisted(self):
         ctrl, _ui, _launcher = _controller()
-        ctrl.start({"mode": "new"})
+        _start(ctrl)
         payload = ctrl.status()
         self.assertEqual(set(payload), set(RESULT_KEYS) & set(payload))
         for key in payload:
@@ -139,12 +150,12 @@ class StartStatusStopTests(unittest.TestCase):
             return True
 
         launcher.activate = activate  # type: ignore[method-assign]
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result, {"ok": True, "status": "starting"})
 
     def test_reuse_skips_activate_when_desktop_present(self):
         ctrl, _ui, launcher = _controller()
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result["status"], "starting")
         self.assertEqual(launcher.activate_calls, 0)
 
@@ -217,14 +228,14 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_new_mode_does_not_click_new_task(self):
         ctrl, ui, _launcher = _controller()
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result, {"ok": True, "status": "starting"})
         self.assertEqual(ui.new_task_calls, 0)
         self.assertTrue(ctrl.session.created_fresh_task)
 
     def test_current_mode_creates_no_task(self):
         ctrl, ui, _launcher = _controller()
-        result = ctrl.start({"mode": "current"})
+        result = _start(ctrl, mode="current")
         self.assertEqual(result, {"ok": True, "status": "starting"})
         self.assertEqual(ui.new_task_calls, 0)
         self.assertFalse(ctrl.session.created_fresh_task)
@@ -243,7 +254,7 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_uia_ready_false_negative_does_not_skip_confirm(self):
         ctrl, ui, _launcher = _controller(ready_after_start=False)
-        started = ctrl.start({"mode": "new"})
+        started = _start(ctrl)
         self.assertEqual(started, {"ok": True, "status": "starting"})
         self.assertEqual(ui.select_calls, 0)
         self.assertEqual(ui.new_task_calls, 0)
@@ -267,7 +278,7 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_confirm_requires_visible_voice(self):
         ctrl, _ui, _launcher = _controller()
-        ctrl.start({"mode": "current"})
+        _start(ctrl, mode="current")
         missing_voice = ctrl.confirm(
             {"voice_visible": False, "model_verified": True, "effort_verified": True}
         )
@@ -277,7 +288,7 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_start_does_not_invoke_codex_ui(self):
         ctrl, ui, _launcher = _controller()
-        result = ctrl.start({"mode": "new"})
+        result = _start(ctrl)
         self.assertEqual(result["status"], "starting")
         self.assertEqual(ui.new_task_calls, 0)
         self.assertEqual(ui.select_calls, 0)
@@ -286,7 +297,7 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_stop_clears_without_uia_or_task_close(self):
         ctrl, ui, _launcher = _controller()
-        ctrl.start({"mode": "current"})
+        _start(ctrl, mode="current")
         result = ctrl.stop()
         self.assertEqual(result, {"ok": True, "status": "inactive"})
         self.assertEqual(ui.voice_stop_calls, 0)
@@ -295,32 +306,37 @@ class StartStatusStopTests(unittest.TestCase):
 
     def test_start_and_stop_own_audio_router(self):
         router = StaticAudioRouter()
-        ctrl, _ui, _launcher = _controller(router=router)
-        self.assertEqual(ctrl.start({"mode": "new"})["status"], "starting")
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser)
+        self.assertEqual(_start(ctrl)["status"], "starting")
         self.assertTrue(router.running)
         self.assertEqual(router.start_calls, 1)
-        self.assertEqual(_confirm(ctrl)["status"], "ready")
+        self.assertEqual(browser.start_calls, 0)
+        confirmed = _confirm(ctrl)
+        self.assertEqual(confirmed["status"], "ready")
+        self.assertNotIn("url", confirmed)
         self.assertEqual(ctrl.stop()["status"], "inactive")
         self.assertFalse(router.running)
         self.assertEqual(router.stop_calls, 1)
+        self.assertEqual(browser.stop_calls, 0)
 
     def test_router_start_failure_fails_closed(self):
         router = StaticAudioRouter(start_ok=False)
         ctrl, _ui, _launcher = _controller(router=router)
-        result = ctrl.start({"mode": "current"})
+        result = _start(ctrl, mode="current")
         self.assertEqual(result, {"ok": False, "status": "failed", "error": "audio_bridge_failed"})
 
     def test_status_detects_router_drop(self):
         router = StaticAudioRouter()
         ctrl, _ui, _launcher = _controller(router=router)
-        ctrl.start({"mode": "current"})
+        _start(ctrl, mode="current")
         _confirm(ctrl)
         router.running = False
         self.assertEqual(ctrl.status()["error"], "audio_bridge_failed")
 
     def test_confirm_requires_model_and_effort_verification(self):
         ctrl, _ui, _launcher = _controller()
-        ctrl.start({"mode": "new"})
+        _start(ctrl)
         missing_model = ctrl.confirm(
             {"voice_visible": True, "model_verified": False, "effort_verified": True}
         )
@@ -331,6 +347,131 @@ class StartStatusStopTests(unittest.TestCase):
         )
         self.assertEqual(missing_effort["error"], "effort_not_verified")
         self.assertEqual(missing_effort["status"], "starting")
+
+
+class TransportSelectionTests(unittest.TestCase):
+    def test_transport_is_required(self):
+        ctrl, ui, launcher = _controller()
+        missing = ctrl.start({"mode": "new"})
+        invalid = ctrl.start({"mode": "new", "transport": "discord"})
+        self.assertEqual(missing["error"], "transport_required")
+        self.assertEqual(invalid["error"], "transport_required")
+        self.assertEqual(ui.new_task_calls, 0)
+        self.assertEqual(launcher.activate_calls, 0)
+
+    def test_physical_results_never_include_url(self):
+        ctrl, _ui, _launcher = _controller()
+        started = _start(ctrl, transport="physical_mic")
+        status_starting = ctrl.status()
+        confirmed = _confirm(ctrl)
+        status_ready = ctrl.status()
+        for payload in (started, status_starting, confirmed, status_ready):
+            self.assertNotIn("url", payload)
+        self.assertNotIn("url", allowlisted(True, "ready", url="http://evil.example/"))
+
+    def test_browser_start_does_not_start_physical_router(self):
+        router = StaticAudioRouter()
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser)
+        started = _start(ctrl, transport="browser")
+        self.assertEqual(started, {"ok": True, "status": "starting"})
+        self.assertNotIn("url", started)
+        self.assertTrue(browser.running)
+        self.assertEqual(browser.start_calls, 1)
+        self.assertFalse(router.running)
+        self.assertEqual(router.start_calls, 0)
+        confirmed = _confirm(ctrl)
+        self.assertEqual(confirmed, {"ok": True, "status": "ready", "url": BROWSER_URL})
+        status = ctrl.status()
+        self.assertEqual(status["url"], BROWSER_URL)
+        self.assertEqual(ctrl.stop()["status"], "inactive")
+        self.assertFalse(browser.running)
+        self.assertEqual(browser.stop_calls, 1)
+        self.assertEqual(router.stop_calls, 0)
+        self.assertNotIn("url", ctrl.status())
+
+    def test_same_transport_start_is_idempotent(self):
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(browser=browser)
+        self.assertEqual(_start(ctrl, transport="browser")["status"], "starting")
+        again = _start(ctrl, transport="browser")
+        self.assertEqual(again["status"], "starting")
+        self.assertEqual(browser.start_calls, 1)
+        _confirm(ctrl)
+        ready_again = _start(ctrl, transport="browser")
+        self.assertEqual(ready_again, {"ok": True, "status": "ready", "url": BROWSER_URL})
+        self.assertEqual(browser.start_calls, 1)
+
+    def test_switching_transport_fails_closed(self):
+        router = StaticAudioRouter()
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser)
+        self.assertEqual(_start(ctrl, transport="physical_mic")["status"], "starting")
+        switched = _start(ctrl, transport="browser")
+        self.assertEqual(switched["error"], "transport_conflict")
+        self.assertEqual(switched["status"], "starting")
+        self.assertTrue(router.running)
+        self.assertEqual(browser.start_calls, 0)
+        _confirm(ctrl)
+        switched_ready = _start(ctrl, transport="browser")
+        self.assertEqual(switched_ready["error"], "transport_conflict")
+        self.assertEqual(switched_ready["status"], "ready")
+        self.assertNotIn("url", switched_ready)
+        self.assertTrue(router.running)
+        self.assertFalse(browser.running)
+
+    def test_browser_dead_server_is_detected(self):
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(browser=browser)
+        _start(ctrl, transport="browser")
+        _confirm(ctrl)
+        browser.running = False
+        status = ctrl.status()
+        self.assertEqual(status["error"], "audio_bridge_failed")
+        self.assertEqual(status["status"], "failed")
+        self.assertNotIn("url", status)
+
+    def test_missing_browser_dependencies_fail_closed(self):
+        router = StaticAudioRouter()
+        browser = StaticBrowserTransport(
+            start_ok=False, failure="browser_dependency_missing"
+        )
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser)
+        result = _start(ctrl, transport="browser")
+        self.assertEqual(
+            result,
+            {"ok": False, "status": "failed", "error": "browser_dependency_missing"},
+        )
+        self.assertFalse(router.running)
+        self.assertEqual(router.start_calls, 0)
+
+    def test_injected_url_is_ignored(self):
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(browser=browser)
+        started = ctrl.start(
+            {
+                "mode": "new",
+                "transport": "browser",
+                "url": "http://evil.example/",
+            }
+        )
+        self.assertNotIn("url", started)
+        confirmed = ctrl.confirm(
+            {
+                "voice_visible": True,
+                "model_verified": True,
+                "effort_verified": True,
+                "url": "http://evil.example/",
+            }
+        )
+        self.assertEqual(confirmed["url"], BROWSER_URL)
+        self.assertNotEqual(confirmed["url"], "http://evil.example/")
+
+    def test_codex_control_source_does_not_import_browser_extras(self):
+        source = (ROOT / "companion" / "codex_control.py").read_text(encoding="utf-8")
+        self.assertNotIn("aiohttp", source)
+        self.assertNotIn("aiortc", source)
+        self.assertNotIn("from companion.browser_call.server", source)
 
 
 class PluginToolTests(unittest.TestCase):
@@ -359,7 +500,9 @@ class PluginToolTests(unittest.TestCase):
 
         ctrl, ui, _launcher = _controller()
         set_controller(ctrl)
-        started = json.loads(handle_codex_voice_start({"mode": "new"}))
+        started = json.loads(
+            handle_codex_voice_start({"mode": "new", "transport": "physical_mic"})
+        )
         confirmed = json.loads(
             handle_codex_voice_confirm(
                 {"voice_visible": True, "model_verified": True, "effort_verified": True}
@@ -368,8 +511,11 @@ class PluginToolTests(unittest.TestCase):
         status = json.loads(handle_codex_voice_status({}))
         stopped = json.loads(handle_codex_voice_stop({}))
         self.assertEqual(started["status"], "starting")
+        self.assertNotIn("url", started)
         self.assertEqual(confirmed["status"], "ready")
+        self.assertNotIn("url", confirmed)
         self.assertEqual(status["status"], "ready")
+        self.assertNotIn("url", status)
         self.assertEqual(stopped["status"], "inactive")
         self.assertEqual(ui.close_task_calls, 0)
         set_controller(None)
@@ -401,9 +547,12 @@ class PluginToolTests(unittest.TestCase):
         from hermes_voice.tools import START_SCHEMA
 
         params = START_SCHEMA["parameters"]
-        self.assertEqual(set(params["properties"]), {"mode"})
-        self.assertEqual(params["required"], ["mode"])
+        self.assertEqual(set(params["properties"]), {"mode", "transport"})
+        self.assertEqual(set(params["required"]), {"mode", "transport"})
         self.assertEqual(set(params["properties"]["mode"]["enum"]), {"new", "current"})
+        self.assertEqual(
+            set(params["properties"]["transport"]["enum"]), {"physical_mic", "browser"}
+        )
         self.assertEqual(params.get("additionalProperties"), False)
 
     def test_confirm_schema_requires_voice_model_and_effort(self):
@@ -430,6 +579,12 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("ambiguous", lowered)
         self.assertIn("do not guess", lowered)
         self.assertIn("never use raw coordinates", lowered)
+        self.assertIn("transport", lowered)
+        self.assertIn("physical_mic", text)
+        self.assertIn("browser", lowered)
+        self.assertIn("http://127.0.0.1:8765/", text)
+        self.assertIn("leave call", lowered)
+        self.assertIn("pc microphone", lowered)
 
     def test_skill_uses_setup_time_cable_and_runtime_voice(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")
