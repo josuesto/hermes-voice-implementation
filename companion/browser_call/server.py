@@ -41,6 +41,36 @@ HELPER_BUILD_SCRIPT = _BROWSER_DIR.parent / "process_loopback" / "build-helper.p
 HELPER_EXE = _BROWSER_DIR / "build" / "ProcessLoopbackCapture.exe"
 PCM_BYTES_PER_FRAME = 4
 PCM_BUFFER_LIMIT = SAMPLE_RATE * PCM_BYTES_PER_FRAME * 2
+AUDIO_RECEIVING_PEAK = 0.01
+PEER_STATES = frozenset({"none", "connecting", "connected", "failed"})
+BROWSER_AUDIO_STATES = frozenset({"no-peer", "silent", "receiving"})
+CABLE_STATES = frozenset({"inactive", "forwarding", "failed"})
+
+
+def classify_peer_state(connection_state: str | None) -> str:
+    if connection_state is None:
+        return "none"
+    if connection_state == "connected":
+        return "connected"
+    if connection_state in ("failed", "closed", "disconnected"):
+        return "failed"
+    return "connecting"
+
+
+def classify_browser_audio(has_peer: bool, peak: float) -> str:
+    if not has_peer:
+        return "no-peer"
+    if float(peak) >= AUDIO_RECEIVING_PEAK:
+        return "receiving"
+    return "silent"
+
+
+def classify_cable(*, failed: bool, forwarding: bool) -> str:
+    if failed:
+        return "failed"
+    if forwarding:
+        return "forwarding"
+    return "inactive"
 
 
 def pick_wasapi_output(devices: Any, hostapis: Any, name: str = CABLE_INPUT_NAME) -> int:
@@ -68,6 +98,12 @@ class CableAudioSink:
         self._stream = None
         self._coinitialized = False
         self.frames_forwarded = 0
+        self.last_peak = 0.0
+        self.failed = False
+
+    @property
+    def is_open(self) -> bool:
+        return self._stream is not None
 
     def open(self) -> None:
         if self._stream is not None:
@@ -101,7 +137,11 @@ class CableAudioSink:
             raise
 
     async def consume(self, track: MediaStreamTrack) -> None:
-        self.open()
+        try:
+            self.open()
+        except Exception:
+            self.failed = True
+            raise
         resampler = AudioResampler(format="fltp", layout="stereo", rate=SAMPLE_RATE)
         try:
             while True:
@@ -111,12 +151,16 @@ class CableAudioSink:
                     if audio.ndim != 2:
                         raise RuntimeError("unsupported browser audio shape")
                     packed = np.ascontiguousarray(audio.T)
+                    self.last_peak = float(np.max(np.abs(packed))) if packed.size else 0.0
                     stream = self._stream
                     if stream is None:
                         return
                     await asyncio.to_thread(stream.write, packed)
                     self.frames_forwarded += int(packed.shape[0])
         except (MediaStreamError, asyncio.CancelledError):
+            raise
+        except Exception:
+            self.failed = True
             raise
         finally:
             self.close()
@@ -488,6 +532,26 @@ class BrowserCallServer:
     def active(self) -> bool:
         return self._pc is not None
 
+    def diagnostics(self) -> dict[str, str]:
+        pc = self._pc
+        sink = self._sink
+        peer = classify_peer_state(None if pc is None else getattr(pc, "connectionState", None))
+        has_peer = pc is not None
+        peak = 0.0
+        failed = False
+        forwarding = False
+        if sink is not None:
+            peak = float(getattr(sink, "last_peak", 0.0) or 0.0)
+            failed = bool(getattr(sink, "failed", False))
+            forwarding = bool(getattr(sink, "is_open", False)) or int(
+                getattr(sink, "frames_forwarded", 0) or 0
+            ) > 0
+        return {
+            "peer": peer,
+            "browser_audio": classify_browser_audio(has_peer, peak),
+            "cable": classify_cable(failed=failed, forwarding=forwarding),
+        }
+
     async def offer(self, request: web.Request) -> web.Response:
         if request.content_length is not None and request.content_length > MAX_OFFER_BYTES:
             raise web.HTTPRequestEntityTooLarge(
@@ -625,6 +689,22 @@ def build_app(server: BrowserCallServer | None = None) -> web.Application:
     app.router.add_post("/offer", server.offer)
     app.router.add_post("/test-tone", server.test_tone)
     app.router.add_post("/end", server.end)
+
+    async def diagnostics(_request: web.Request) -> web.Response:
+        snapshot = server.diagnostics()
+        return web.json_response(
+            {
+                "peer": snapshot["peer"] if snapshot["peer"] in PEER_STATES else "none",
+                "browser_audio": (
+                    snapshot["browser_audio"]
+                    if snapshot["browser_audio"] in BROWSER_AUDIO_STATES
+                    else "no-peer"
+                ),
+                "cable": snapshot["cable"] if snapshot["cable"] in CABLE_STATES else "inactive",
+            }
+        )
+
+    app.router.add_get("/diagnostics", diagnostics)
 
     async def cleanup(_app: web.Application) -> None:
         await server.close()

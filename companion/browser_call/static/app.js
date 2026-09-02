@@ -7,9 +7,19 @@ const muteOutputButton = document.querySelector("#muteOutput");
 const toneButton = document.querySelector("#tone");
 const endButton = document.querySelector("#end");
 const remoteAudio = document.querySelector("#remoteAudio");
+const peerStateEl = document.querySelector("#peerState");
+const micLabelEl = document.querySelector("#micLabel");
+const meterEl = document.querySelector("#meter");
+const micSelectWrap = document.querySelector("#micSelectWrap");
+const micSelect = document.querySelector("#micSelect");
 
 let peer = null;
 let microphone = null;
+let meterContext = null;
+let meterAnalyser = null;
+let meterSource = null;
+let meterRaf = 0;
+let switchingMic = false;
 
 function supported() {
   return Boolean(window.RTCPeerConnection && navigator.mediaDevices?.getUserMedia);
@@ -17,6 +27,10 @@ function supported() {
 
 function setStatus(message) {
   statusEl.textContent = message;
+}
+
+function setPeerState(state) {
+  peerStateEl.textContent = `WebRTC: ${state}`;
 }
 
 function waitForIceGathering(pc) {
@@ -38,14 +52,127 @@ function waitForIceGathering(pc) {
   });
 }
 
+function showMicLabel(track) {
+  const label = track?.label ? track.label : "selected";
+  micLabelEl.hidden = false;
+  micLabelEl.textContent = `Microphone: ${label}`;
+}
+
+function stopMeter() {
+  if (meterRaf) window.cancelAnimationFrame(meterRaf);
+  meterRaf = 0;
+  if (meterSource) meterSource.disconnect();
+  meterSource = null;
+  meterAnalyser = null;
+  if (meterContext) meterContext.close().catch(() => {});
+  meterContext = null;
+  meterEl.hidden = true;
+  meterEl.style.setProperty("--level", "0");
+  meterEl.dataset.state = "silent";
+}
+
+function attachMeter(stream) {
+  stopMeter();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  meterContext = new AudioCtx();
+  meterAnalyser = meterContext.createAnalyser();
+  meterAnalyser.fftSize = 256;
+  meterSource = meterContext.createMediaStreamSource(stream);
+  meterSource.connect(meterAnalyser);
+  meterEl.hidden = false;
+  const data = new Uint8Array(meterAnalyser.fftSize);
+  const tick = () => {
+    if (!meterAnalyser) return;
+    meterAnalyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const centered = (data[i] - 128) / 128;
+      sum += centered * centered;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    meterEl.style.setProperty("--level", String(Math.min(1, rms * 4)));
+    meterEl.dataset.state = rms > 0.02 ? "receiving" : "silent";
+    meterRaf = window.requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+async function listInputDevices() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices.filter((device) => device.kind === "audioinput");
+}
+
+async function fillMicSelect() {
+  const inputs = await listInputDevices();
+  if (inputs.length < 2) {
+    micSelectWrap.hidden = true;
+    return;
+  }
+  const currentId = microphone?.getAudioTracks()[0]?.getSettings?.().deviceId || "";
+  micSelect.innerHTML = "";
+  for (const input of inputs) {
+    const option = document.createElement("option");
+    option.value = input.deviceId;
+    option.textContent = input.label || "Microphone";
+    micSelect.appendChild(option);
+  }
+  if (currentId) micSelect.value = currentId;
+  micSelectWrap.hidden = false;
+}
+
+async function replaceOutgoingTrack(nextStream) {
+  const nextTrack = nextStream.getAudioTracks()[0];
+  const sender = peer?.getSenders().find((item) => item.track && item.track.kind === "audio");
+  if (!sender) {
+    nextStream.getTracks().forEach((track) => track.stop());
+    throw new Error("No audio sender is available");
+  }
+  try {
+    await sender.replaceTrack(nextTrack);
+  } catch (error) {
+    nextStream.getTracks().forEach((track) => track.stop());
+    throw error;
+  }
+  if (microphone) microphone.getTracks().forEach((track) => track.stop());
+  microphone = nextStream;
+  attachMeter(nextStream);
+  showMicLabel(nextTrack);
+}
+
+async function switchMicrophone(deviceId) {
+  if (!peer || switchingMic || !deviceId) return;
+  switchingMic = true;
+  try {
+    const next = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: deviceId },
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+    await replaceOutgoingTrack(next);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Could not switch microphone");
+  } finally {
+    switchingMic = false;
+  }
+}
+
 async function startCall() {
   startButton.disabled = true;
   setStatus("Requesting microphone…");
+  setPeerState("connecting");
   try {
     microphone = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       video: false,
     });
+    showMicLabel(microphone.getAudioTracks()[0]);
+    attachMeter(microphone);
+    await fillMicSelect();
     peer = new RTCPeerConnection({ iceServers: [] });
     for (const track of microphone.getAudioTracks()) peer.addTrack(track, microphone);
     peer.addEventListener("track", (event) => {
@@ -54,6 +181,7 @@ async function startCall() {
     });
     peer.addEventListener("connectionstatechange", () => {
       const state = peer?.connectionState || "closed";
+      setPeerState(state);
       setStatus(state === "connected" ? "Connected" : state);
       if (["failed", "closed"].includes(state)) resetUi();
     });
@@ -74,11 +202,13 @@ async function startCall() {
   } catch (error) {
     await closeLocal();
     startButton.disabled = false;
+    setPeerState("none");
     setStatus(error instanceof Error ? error.message : "Could not start the call");
   }
 }
 
 async function closeLocal() {
+  stopMeter();
   if (microphone) microphone.getTracks().forEach((track) => track.stop());
   microphone = null;
   if (peer) peer.close();
@@ -92,9 +222,15 @@ function resetUi() {
   startButton.disabled = false;
   muteMicButton.textContent = "Mute microphone";
   muteOutputButton.textContent = "Mute Codex audio";
+  micSelectWrap.hidden = true;
+  micSelect.innerHTML = "";
+  micLabelEl.hidden = true;
+  micLabelEl.textContent = "";
+  stopMeter();
 }
 
 startButton.addEventListener("click", startCall);
+micSelect.addEventListener("change", () => switchMicrophone(micSelect.value));
 muteMicButton.addEventListener("click", () => {
   const track = microphone?.getAudioTracks()[0];
   if (!track) return;
@@ -117,6 +253,7 @@ endButton.addEventListener("click", async () => {
   await closeLocal();
   resetUi();
   endButton.disabled = false;
+  setPeerState("none");
   setStatus("Call left. You can start the call again.");
 });
 

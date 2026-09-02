@@ -38,6 +38,21 @@ class OwnedBrowserHost:
     def error(self) -> str | None:
         return self._last_error
 
+    def diagnostics(self) -> dict[str, str]:
+        call_server = self._call_server
+        if call_server is None or not self.is_running():
+            return {
+                "peer": "none",
+                "browser_audio": "no-peer",
+                "cable": "inactive",
+            }
+        snapshot = call_server.diagnostics()
+        return {
+            "peer": snapshot.get("peer", "none"),
+            "browser_audio": snapshot.get("browser_audio", "no-peer"),
+            "cable": snapshot.get("cable", "inactive"),
+        }
+
     def start(self) -> bool:
         if self.is_running():
             return True

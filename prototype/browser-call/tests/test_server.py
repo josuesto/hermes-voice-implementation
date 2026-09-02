@@ -1,9 +1,11 @@
 import asyncio
+import json
 import socket
 import subprocess
 import sys
 import time
 import unittest
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
@@ -132,6 +134,30 @@ class PageContractTests(unittest.TestCase):
             self.assertIn(label, self.html)
         self.assertNotIn("End session", self.html)
 
+    def test_page_shows_webrtc_and_microphone_observability(self):
+        self.assertIn("WebRTC:", self.html)
+        self.assertIn("id=\"micLabel\"", self.html)
+        self.assertIn("id=\"meter\"", self.html)
+        self.assertIn("id=\"micSelect\"", self.html)
+        self.assertIn("enumerateDevices", self.js)
+        self.assertIn("audioinput", self.js)
+        self.assertIn("replaceTrack", self.js)
+        self.assertIn("deviceId: { exact: deviceId }", self.js)
+        self.assertIn("getByteTimeDomainData", self.js)
+        self.assertNotIn("localStorage", self.js)
+        self.assertNotIn("sessionStorage", self.js)
+
+    def test_microphone_replace_fails_closed_without_sender(self):
+        self.assertIn("if (!sender)", self.js)
+        self.assertIn('throw new Error("No audio sender is available")', self.js)
+        fail_at = self.js.index("if (!sender)")
+        assign_at = self.js.index("microphone = nextStream")
+        self.assertLess(fail_at, assign_at)
+        closed = self.js[fail_at:assign_at]
+        self.assertIn("nextStream.getTracks().forEach", closed)
+        self.assertIn("replaceTrack", closed)
+        self.assertGreaterEqual(closed.count("nextStream.getTracks().forEach"), 2)
+
     def test_feature_detection_and_no_hardcoded_ice_server(self):
         self.assertIn("RTCPeerConnection", self.js)
         self.assertIn("getUserMedia", self.js)
@@ -151,6 +177,45 @@ class ServerStateTests(unittest.IsolatedAsyncioTestCase):
         await call_server.close()
         await call_server.close()
         self.assertFalse(call_server.active)
+
+
+class BrowserObservabilityTests(unittest.TestCase):
+    def test_microphone_activity_classification(self):
+        self.assertEqual(server.classify_browser_audio(False, 1.0), "no-peer")
+        self.assertEqual(server.classify_browser_audio(True, 0.0), "silent")
+        self.assertEqual(
+            server.classify_browser_audio(True, server.AUDIO_RECEIVING_PEAK),
+            "receiving",
+        )
+        self.assertEqual(server.classify_peer_state(None), "none")
+        self.assertEqual(server.classify_peer_state("checking"), "connecting")
+        self.assertEqual(server.classify_peer_state("connected"), "connected")
+        self.assertEqual(server.classify_peer_state("disconnected"), "failed")
+        self.assertEqual(server.classify_cable(failed=True, forwarding=True), "failed")
+        self.assertEqual(server.classify_cable(failed=False, forwarding=True), "forwarding")
+        self.assertEqual(server.classify_cable(failed=False, forwarding=False), "inactive")
+
+    def test_diagnostics_follow_peer_and_sink_without_raw_audio(self):
+        call_server = server.BrowserCallServer()
+        idle = call_server.diagnostics()
+        self.assertEqual(idle, {"peer": "none", "browser_audio": "no-peer", "cable": "inactive"})
+
+        class FakePc:
+            connectionState = "connected"
+
+        class LiveSink:
+            last_peak = 0.5
+            frames_forwarded = 48
+            is_open = True
+            failed = False
+
+        call_server._pc = FakePc()
+        call_server._sink = LiveSink()
+        live = call_server.diagnostics()
+        self.assertEqual(live["peer"], "connected")
+        self.assertEqual(live["browser_audio"], "receiving")
+        self.assertEqual(live["cable"], "forwarding")
+        self.assertEqual(set(live), {"peer", "browser_audio", "cable"})
 
 
 class ProcessLoopbackSourceTests(unittest.TestCase):
@@ -261,6 +326,10 @@ class FakeSink:
     def __init__(self):
         self.received = asyncio.Event()
         self.closed = False
+        self.last_peak = 0.0
+        self.failed = False
+        self.is_open = False
+        self.frames_forwarded = 0
         self.__class__.instances.append(self)
 
     async def consume(self, track):
@@ -332,6 +401,12 @@ class WebRtcIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(FakeProcessSource.instances[0].closed)
         page = await self.client.get("/")
         self.assertEqual(page.status, 200)
+        idle = await self.client.get("/diagnostics")
+        self.assertEqual(idle.status, 200)
+        snapshot = await idle.json()
+        self.assertEqual(snapshot["peer"], "none")
+        self.assertEqual(snapshot["browser_audio"], "no-peer")
+        self.assertEqual(set(snapshot), {"peer", "browser_audio", "cable"})
 
     async def test_leave_call_allows_reconnect_without_stopping_capture(self):
         incoming_track = server.TestToneTrack()
@@ -393,22 +468,45 @@ class OwnedHostTests(unittest.TestCase):
         occupied.close()
 
         host = OwnedBrowserHost(port=_ephemeral_port())
-        self.assertTrue(host.start())
-        self.assertTrue(host.is_running())
-        self.assertTrue(host.stop())
+        try:
+            self.assertTrue(host.start())
+            self.assertTrue(host.is_running())
+        finally:
+            self.assertTrue(host.stop())
         self.assertFalse(host.is_running())
 
     def test_dead_server_is_not_running(self):
         host = OwnedBrowserHost(port=_ephemeral_port())
-        self.assertTrue(host.start())
-        loop = host._loop
-        thread = host._thread
-        self.assertIsNotNone(loop)
-        self.assertIsNotNone(thread)
-        loop.call_soon_threadsafe(loop.stop)
-        thread.join(timeout=8)
+        try:
+            self.assertTrue(host.start())
+            loop = host._loop
+            thread = host._thread
+            self.assertIsNotNone(loop)
+            self.assertIsNotNone(thread)
+            loop.call_soon_threadsafe(loop.stop)
+            thread.join(timeout=8)
+            self.assertFalse(host.is_running())
+        finally:
+            host.stop()
+
+    def test_peer_disconnect_keeps_host_listening(self):
+        host = OwnedBrowserHost(port=_ephemeral_port())
+        try:
+            self.assertTrue(host.start())
+            self.assertIsNotNone(host._thread)
+            self.assertTrue(host._thread.daemon)
+            with urllib.request.urlopen(host.url(), timeout=2) as page:
+                page.read()
+                self.assertEqual(page.status, 200)
+            with urllib.request.urlopen(host.url() + "diagnostics", timeout=2) as raw:
+                payload = json.loads(raw.read().decode("utf-8"))
+            self.assertEqual(payload["peer"], "none")
+            self.assertEqual(payload["browser_audio"], "no-peer")
+            self.assertEqual(set(payload), {"peer", "browser_audio", "cable"})
+            self.assertTrue(host.is_running())
+        finally:
+            self.assertTrue(host.stop())
         self.assertFalse(host.is_running())
-        host.stop()
 
 
 if __name__ == "__main__":

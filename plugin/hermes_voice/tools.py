@@ -103,7 +103,8 @@ STATUS_SCHEMA: Dict[str, Any] = {
     "description": (
         "Return the owned Codex Voice lifecycle state: inactive, starting, "
         "ready, stopping, or failed. For an active browser transport the allowlisted "
-        "localhost url may be included. No task content is returned."
+        "localhost url may be included, plus bounded peer, browser_audio, and cable "
+        "enums. No task content is returned."
     ),
     "parameters": _EMPTY_PARAMS,
 }
@@ -111,10 +112,11 @@ STATUS_SCHEMA: Dict[str, Any] = {
 STOP_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_stop",
     "description": (
-        "Clear companion Voice session state after computer_use ended Voice and "
-        "verified it ended. Cooperatively stops the physical microphone router or the "
-        "owned browser-call server. Leaves the Codex task open. Does not delete, cancel, "
-        "archive, or close the task."
+        "Clear companion Voice session state after the user explicitly asked to stop "
+        "or end Codex Voice, computer_use ended Voice, and a post-action capture showed "
+        "it ended. Cooperatively stops the physical microphone router or the owned "
+        "browser-call server. Do not use this as failure cleanup. Leaves the Codex task "
+        "open. Does not delete, cancel, archive, or close the task."
     ),
     "parameters": _EMPTY_PARAMS,
 }

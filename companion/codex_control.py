@@ -42,12 +42,20 @@ ERRORS = (
     "browser_dependency_missing",
     "browser_start_failed",
 )
-RESULT_KEYS = ("ok", "status", "error", "url")
+RESULT_KEYS = ("ok", "status", "error", "url", "peer", "browser_audio", "cable")
 RESUME_KEYS = frozenset({"task_id", "thread_id", "title", "resume", "task_title"})
 START_MODES = ("new", "current")
 START_TRANSPORTS = ("physical_mic", "browser")
 BROWSER_URL = "http://127.0.0.1:8765/"
 ALLOWED_URLS = frozenset({BROWSER_URL})
+PEER_STATES = frozenset({"none", "connecting", "connected", "failed"})
+BROWSER_AUDIO_STATES = frozenset({"no-peer", "silent", "receiving"})
+CABLE_STATES = frozenset({"inactive", "forwarding", "failed"})
+IDLE_BROWSER_DIAGNOSTICS = {
+    "peer": "none",
+    "browser_audio": "no-peer",
+    "cable": "inactive",
+}
 CABLE_MIC_NAME = "CABLE Output (VB-Audio Virtual Cable)"
 CABLE_INPUT_NAME = "CABLE Input (VB-Audio Virtual Cable)"
 SOURCE_MIC_ENV = "HERMES_VOICE_SOURCE_MIC"
@@ -109,6 +117,7 @@ class BrowserTransport(Protocol):
     def is_running(self) -> bool: ...
     def stop(self) -> bool: ...
     def error(self) -> str | None: ...
+    def diagnostics(self) -> dict[str, str]: ...
 
 
 @dataclass(frozen=True)
@@ -172,7 +181,13 @@ def pick_unique_enabled(candidates: list[dict[str, Any]]) -> dict[str, Any] | No
 
 
 def allowlisted(
-    ok: bool, status: str, error: str | None = None, url: str | None = None
+    ok: bool,
+    status: str,
+    error: str | None = None,
+    url: str | None = None,
+    peer: str | None = None,
+    browser_audio: str | None = None,
+    cable: str | None = None,
 ) -> dict[str, Any]:
     if status not in STATUSES:
         status = "failed"
@@ -182,6 +197,12 @@ def allowlisted(
         payload["error"] = error if error in ERRORS else "voice_not_ready"
     if url in ALLOWED_URLS:
         payload["url"] = url
+    if peer in PEER_STATES:
+        payload["peer"] = peer
+    if browser_audio in BROWSER_AUDIO_STATES:
+        payload["browser_audio"] = browser_audio
+    if cable in CABLE_STATES:
+        payload["cable"] = cable
     return {key: payload[key] for key in RESULT_KEYS if key in payload}
 
 
@@ -260,6 +281,7 @@ class CodexVoiceController:
                 True,
                 self.session.status,
                 include_url=self.session.status == "ready" and transport == "browser",
+                include_browser_diag=False,
             )
         if not self._cable.output_present():
             self.session.status = "failed"
@@ -305,7 +327,7 @@ class CodexVoiceController:
         self.session.created_fresh_task = mode == "new"
         self.session.owned = False
         self.session.status = "starting"
-        return self._result(True, "starting", include_url=False)
+        return self._result(True, "starting", include_url=False, include_browser_diag=False)
 
     def confirm(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
@@ -318,7 +340,12 @@ class CodexVoiceController:
                 self.session.status = "failed"
                 self.session.owned = False
                 return allowlisted(False, "failed", "audio_bridge_failed")
-            return self._result(True, "ready", include_url=self.session.transport == "browser")
+            return self._result(
+                True,
+                "ready",
+                include_url=self.session.transport == "browser",
+                include_browser_diag=False,
+            )
         if self.session.status != "starting":
             return allowlisted(False, "failed", "voice_not_ready")
         if not self._bridge_running():
@@ -333,7 +360,12 @@ class CodexVoiceController:
             return allowlisted(False, "starting", "effort_not_verified")
         self.session.owned = True
         self.session.status = "ready"
-        return self._result(True, "ready", include_url=self.session.transport == "browser")
+        return self._result(
+            True,
+            "ready",
+            include_url=self.session.transport == "browser",
+            include_browser_diag=False,
+        )
 
     def stop(self) -> dict[str, Any]:
         if self.session.status == "inactive" and not self.session.owned:
@@ -373,14 +405,33 @@ class CodexVoiceController:
         error: str | None = None,
         *,
         include_url: bool | None = None,
+        include_browser_diag: bool | None = None,
     ) -> dict[str, Any]:
         url = None
+        peer = None
+        browser_audio = None
+        cable = None
         browser_active = self.session.transport == "browser" and self._browser.is_running()
         if include_url is True:
             url = BROWSER_URL if browser_active else None
         elif include_url is None and browser_active and status in ("starting", "ready"):
             url = BROWSER_URL
-        return allowlisted(ok, status, error, url=url)
+        if include_browser_diag is True or (
+            include_browser_diag is None and browser_active and status in ("starting", "ready")
+        ):
+            snapshot = self._browser.diagnostics()
+            peer = snapshot.get("peer")
+            browser_audio = snapshot.get("browser_audio")
+            cable = snapshot.get("cable")
+        return allowlisted(
+            ok,
+            status,
+            error,
+            url=url,
+            peer=peer,
+            browser_audio=browser_audio,
+            cable=cable,
+        )
 
     def _wait(self, predicate: Callable[[], bool], budget: float) -> bool:
         deadline = time.monotonic() + budget
@@ -533,6 +584,7 @@ class StaticBrowserTransport:
         self.start_calls = 0
         self.stop_calls = 0
         self.failure = failure
+        self.diag = dict(IDLE_BROWSER_DIAGNOSTICS)
 
     def start(self) -> bool:
         self.start_calls += 1
@@ -547,10 +599,14 @@ class StaticBrowserTransport:
         if not self.stop_ok:
             return False
         self.running = False
+        self.diag = dict(IDLE_BROWSER_DIAGNOSTICS)
         return True
 
     def error(self) -> str | None:
         return None if self.running else self.failure
+
+    def diagnostics(self) -> dict[str, str]:
+        return dict(self.diag)
 
 
 class WinBrowserTransport:
@@ -599,6 +655,21 @@ class WinBrowserTransport:
         if host is not None:
             return host.error()
         return None
+
+    def diagnostics(self) -> dict[str, str]:
+        host = self._host
+        if host is None or not host.is_running():
+            return dict(IDLE_BROWSER_DIAGNOSTICS)
+        snapshot = host.diagnostics()
+        return {
+            "peer": snapshot.get("peer") if snapshot.get("peer") in PEER_STATES else "none",
+            "browser_audio": (
+                snapshot.get("browser_audio")
+                if snapshot.get("browser_audio") in BROWSER_AUDIO_STATES
+                else "no-peer"
+            ),
+            "cable": snapshot.get("cable") if snapshot.get("cable") in CABLE_STATES else "inactive",
+        }
 
 
 class WinSessionGuard:
@@ -1287,6 +1358,9 @@ def dumps_result(result: dict[str, Any]) -> str:
             result.get("status", "failed"),
             result.get("error"),
             result.get("url"),
+            result.get("peer"),
+            result.get("browser_audio"),
+            result.get("cable"),
         ),
         ensure_ascii=False,
     )

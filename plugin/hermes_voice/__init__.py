@@ -42,7 +42,7 @@ def register(ctx) -> None:
             "codex_voice_stop",
             STOP_SCHEMA,
             handle_codex_voice_stop,
-            "After computer_use ended Codex Voice, stop the owned transport, clear state, and leave the Codex task open.",
+            "After the user explicitly asked to stop Codex Voice and computer_use ended it, stop the owned transport, clear state, and leave the Codex task open.",
         ),
     ):
         ctx.register_tool(

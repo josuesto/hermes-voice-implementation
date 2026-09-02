@@ -367,6 +367,9 @@ class TransportSelectionTests(unittest.TestCase):
         status_ready = ctrl.status()
         for payload in (started, status_starting, confirmed, status_ready):
             self.assertNotIn("url", payload)
+            self.assertNotIn("peer", payload)
+            self.assertNotIn("browser_audio", payload)
+            self.assertNotIn("cable", payload)
         self.assertNotIn("url", allowlisted(True, "ready", url="http://evil.example/"))
 
     def test_browser_start_does_not_start_physical_router(self):
@@ -473,6 +476,58 @@ class TransportSelectionTests(unittest.TestCase):
         self.assertNotIn("aiortc", source)
         self.assertNotIn("from companion.browser_call.server", source)
 
+    def test_incomplete_confirm_does_not_stop_browser_host(self):
+        browser = StaticBrowserTransport()
+        ctrl, _ui, _launcher = _controller(browser=browser)
+        self.assertEqual(_start(ctrl, transport="browser")["status"], "starting")
+        denied = ctrl.confirm(
+            {"voice_visible": False, "model_verified": True, "effort_verified": True}
+        )
+        self.assertEqual(denied["error"], "voice_not_ready")
+        self.assertEqual(denied["status"], "starting")
+        self.assertTrue(browser.running)
+        self.assertEqual(browser.stop_calls, 0)
+        status = ctrl.status()
+        self.assertEqual(status["status"], "starting")
+        self.assertEqual(status["url"], BROWSER_URL)
+        self.assertEqual(status["peer"], "none")
+        self.assertEqual(status["browser_audio"], "no-peer")
+        self.assertEqual(status["cable"], "inactive")
+
+    def test_status_exposes_browser_diagnostics_while_host_alive(self):
+        browser = StaticBrowserTransport()
+        browser.diag = {
+            "peer": "connected",
+            "browser_audio": "receiving",
+            "cable": "forwarding",
+        }
+        ctrl, _ui, _launcher = _controller(browser=browser)
+        _start(ctrl, transport="browser")
+        status = ctrl.status()
+        self.assertEqual(status["peer"], "connected")
+        self.assertEqual(status["browser_audio"], "receiving")
+        self.assertEqual(status["cable"], "forwarding")
+        self.assertNotIn("evil", str(status))
+        stopped = ctrl.stop()
+        self.assertEqual(stopped["status"], "inactive")
+        self.assertFalse(browser.running)
+        self.assertEqual(browser.stop_calls, 1)
+        idle = ctrl.status()
+        self.assertNotIn("peer", idle)
+        self.assertNotIn("browser_audio", idle)
+        self.assertNotIn("cable", idle)
+        self.assertNotIn("url", idle)
+
+    def test_injected_diagnostics_are_dropped(self):
+        self.assertNotIn(
+            "peer",
+            allowlisted(True, "ready", url=BROWSER_URL, peer="ice-192.168.0.1"),
+        )
+        self.assertNotIn(
+            "browser_audio",
+            allowlisted(True, "ready", browser_audio="pcm-bytes"),
+        )
+
 
 class PluginToolTests(unittest.TestCase):
     def test_schemas_have_no_resume_fields(self):
@@ -516,6 +571,9 @@ class PluginToolTests(unittest.TestCase):
         self.assertNotIn("url", confirmed)
         self.assertEqual(status["status"], "ready")
         self.assertNotIn("url", status)
+        self.assertNotIn("peer", status)
+        self.assertNotIn("browser_audio", status)
+        self.assertNotIn("cable", status)
         self.assertEqual(stopped["status"], "inactive")
         self.assertEqual(ui.close_task_calls, 0)
         set_controller(None)
@@ -585,6 +643,10 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8765/", text)
         self.assertIn("leave call", lowered)
         self.assertIn("pc microphone", lowered)
+        self.assertIn("never call `codex_voice_stop` as failure cleanup", lowered)
+        self.assertIn("hermes turn", lowered)
+        self.assertIn("computer_use` failed", lowered)
+        self.assertIn("explicitly asks to stop", lowered)
 
     def test_skill_uses_setup_time_cable_and_runtime_voice(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")
@@ -603,6 +665,14 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("model_verified=true", text)
         self.assertIn("effort_verified=true", text)
         self.assertIn("re-check", text)
+
+    def test_skill_does_not_instruct_stop_on_setup_failure(self):
+        text = INDEXED_SKILL.read_text(encoding="utf-8").lower()
+        plugin = (ROOT / "plugin" / "hermes_voice" / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("never call `codex_voice_stop` as failure cleanup", text)
+        self.assertIn("keep the owned transport running", text)
+        self.assertIn("not stop requests", text)
+        self.assertNotIn("register_hook(", plugin)
 
     def test_indexed_skill_matches_plugin_skill(self):
         indexed = INDEXED_SKILL.read_text(encoding="utf-8")

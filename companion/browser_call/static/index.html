@@ -12,10 +12,17 @@
       <p class="eyebrow">HERMES VOICE · LOCAL CALL</p>
       <h1>Codex call</h1>
       <p id="status" class="status" role="status" aria-live="polite">Ready to connect</p>
+      <p id="peerState" class="diag">WebRTC: none</p>
+      <p id="micLabel" class="diag" hidden></p>
+      <div id="meter" class="meter" hidden aria-hidden="true"><span></span></div>
 
       <button id="start" class="primary">Start call</button>
 
       <section id="controls" hidden>
+        <label id="micSelectWrap" class="field" hidden>
+          Microphone
+          <select id="micSelect"></select>
+        </label>
         <div class="control-row">
           <button id="muteMic">Mute microphone</button>
           <button id="muteOutput">Mute Codex audio</button>

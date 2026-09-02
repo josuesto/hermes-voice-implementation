@@ -11,7 +11,7 @@ Hermes `computer_use` owns visible Codex UI. Companion tools own preflight, pack
 - `companion/codex_control.py` is the Windows companion: session lock, packaged Codex activation, unique window proof, endpoint presence, transport ownership, and `starting`/`ready`/`inactive` state.
 - `companion/browser_call/` is the loopback WebRTC server and static call page. `companion/process_loopback/` is the Codex process-capture helper. Copying `companion` during plugin install includes both.
 - Status values: `inactive`, `starting`, `ready`, `stopping`, `failed`.
-- Tool JSON keys: `ok`, `status`, `error` when failed, and `url` only for an active browser transport. The only allowed URL is `http://127.0.0.1:8765/`.
+- Tool JSON keys are allowlisted. Every transport may return `ok`, `status`, and `error` when failed. An active browser transport may also return the fixed `http://127.0.0.1:8765/` URL and bounded `peer`, `browser_audio`, and `cable` diagnostic enums. Physical-microphone results never include browser fields.
 
 ## Development install
 
