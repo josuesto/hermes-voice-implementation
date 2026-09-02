@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
+    <title>Hermes Voice</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">HERMES VOICE · LOCAL PROTOTYPE</p>
+      <h1>Codex call</h1>
+      <p id="status" class="status" role="status" aria-live="polite">Ready to connect</p>
+
+      <button id="start" class="primary">Start call</button>
+
+      <section id="controls" hidden>
+        <div class="control-row">
+          <button id="muteMic">Mute microphone</button>
+          <button id="muteOutput">Mute Codex audio</button>
+        </div>
+        <button id="tone" class="quiet">Test return audio</button>
+        <button id="end" class="danger">End session</button>
+      </section>
+
+      <p id="support" class="support"></p>
+      <p class="note">Keep this page open and the screen awake during the prototype call.</p>
+      <audio id="remoteAudio" autoplay playsinline></audio>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
