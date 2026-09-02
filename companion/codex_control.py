@@ -1,10 +1,11 @@
 """Owned Codex Voice lifecycle for same-host Hermes.
 
-Launch uses packaged activation only. Fresh-task (mode=new) and Voice
-actions use semantic UI Automation names scoped to one verified Codex
-window. mode=current skips task creation. Status and errors are
-allowlisted. Task titles, IDs, prompts, audio, and accessibility trees
-are never persisted.
+Companion owns Windows/session preflight, packaged launch, VB-CABLE
+endpoint presence, one-session state, and task-preserving cleanup.
+Hermes computer_use owns all visible Codex UI: conversation selection,
+Voice start/stop, microphone selection, and visible ready verification.
+Status and errors are allowlisted. Task titles, IDs, prompts, audio,
+and accessibility trees are never persisted.
 """
 
 from __future__ import annotations
@@ -180,9 +181,6 @@ class CodexVoiceController:
         self.session = Session()
 
     def status(self) -> dict[str, Any]:
-        if self.session.owned and self.session.status == "ready" and not self._ui.voice_ready():
-            self.session.status = "failed"
-            return allowlisted(False, "failed", "voice_not_ready")
         return allowlisted(self.session.status != "failed", self.session.status)
 
     def start(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -200,11 +198,8 @@ class CodexVoiceController:
         if not self._guard.is_interactive_unlocked():
             self.session.status = "failed"
             return allowlisted(False, "failed", "session_locked")
-        if self.session.owned and self.session.status == "ready" and self._ui.voice_ready():
+        if self.session.owned and self.session.status == "ready":
             return allowlisted(True, "ready")
-        if self._ui.unowned_voice_active() and not self.session.owned:
-            self.session.status = "failed"
-            return allowlisted(False, "failed", "conflicting_voice")
         if not self._cable.output_present():
             self.session.status = "failed"
             return allowlisted(False, "failed", "cable_mic_missing")
@@ -222,28 +217,24 @@ class CodexVoiceController:
                 self.session.status = "failed"
                 return allowlisted(False, "failed", "launch_failed")
 
-        if mode == "new":
-            if not self._ui.invoke_new_task():
-                self.session.status = "failed"
-                return allowlisted(False, "failed", "fresh_task_failed")
-            self.session.created_fresh_task = True
-        elif not self._ui.main_window_present():
-            self.session.status = "failed"
-            return allowlisted(False, "failed", "launch_failed")
+        self.session.created_fresh_task = mode == "new"
+        self.session.owned = False
+        self.session.status = "starting"
+        return allowlisted(True, "starting")
 
-        if not self._ui.invoke_voice_start():
+    def confirm(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        params = params or {}
+        if RESUME_KEYS.intersection(params):
             self.session.status = "failed"
-            return allowlisted(False, "failed", "voice_start_failed")
-        if not self._wait(self._ui.voice_ready, self._ready_wait_s):
-            self.session.status = "failed"
+            return allowlisted(False, "failed", "resume_unsupported")
+        if self.session.owned and self.session.status == "ready":
+            return allowlisted(True, "ready")
+        if self.session.status != "starting":
             return allowlisted(False, "failed", "voice_not_ready")
-        if not self._ui.select_cable_mic():
-            self._ui.invoke_voice_stop()
-            self._wait(lambda: not self._ui.voice_ready(), self._stop_wait_s)
-            self.session.owned = False
-            self.session.status = "failed"
-            return allowlisted(False, "failed", "cable_mic_not_selected")
-
+        if params.get("voice_visible") is not True:
+            return allowlisted(False, "starting", "voice_not_ready")
+        if params.get("cable_selected") is not True:
+            return allowlisted(False, "starting", "cable_mic_not_selected")
         self.session.owned = True
         self.session.status = "ready"
         return allowlisted(True, "ready")
@@ -252,13 +243,6 @@ class CodexVoiceController:
         if self.session.status == "inactive" and not self.session.owned:
             return allowlisted(True, "inactive")
         self.session.status = "stopping"
-        if self._ui.voice_ready() or self.session.owned:
-            if not self._ui.invoke_voice_stop():
-                self.session.status = "failed"
-                return allowlisted(False, "failed", "stop_failed")
-            if not self._wait(lambda: not self._ui.voice_ready(), self._stop_wait_s):
-                self.session.status = "failed"
-                return allowlisted(False, "failed", "stop_failed")
         self.session.owned = False
         self.session.status = "inactive"
         return allowlisted(True, "inactive")

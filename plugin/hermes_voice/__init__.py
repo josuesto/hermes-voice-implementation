@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from .tools import (
+    CONFIRM_SCHEMA,
     START_SCHEMA,
     STATUS_SCHEMA,
     STOP_SCHEMA,
     check_windows,
+    handle_codex_voice_confirm,
     handle_codex_voice_start,
     handle_codex_voice_status,
     handle_codex_voice_stop,
+    skill_markdown_path,
 )
 
 
@@ -23,19 +24,25 @@ def register(ctx) -> None:
             "codex_voice_start",
             START_SCHEMA,
             handle_codex_voice_start,
-            "Launch Codex if needed, start Voice, and verify ready. mode=new creates a fresh task. mode=current uses the selected conversation.",
+            "When the user asks to start or resume Codex Voice on this Windows PC, preflight and launch Codex. Returns starting. Then use computer_use for Codex UI, then codex_voice_confirm.",
+        ),
+        (
+            "codex_voice_confirm",
+            CONFIRM_SCHEMA,
+            handle_codex_voice_confirm,
+            "After computer_use shows Voice active and CABLE Output selected, record ready. Both voice_visible and cable_selected must be true.",
         ),
         (
             "codex_voice_status",
             STATUS_SCHEMA,
             handle_codex_voice_status,
-            "Return inactive, starting, ready, stopping, or failed.",
+            "Return inactive, starting, ready, stopping, or failed for Codex Voice on this PC.",
         ),
         (
             "codex_voice_stop",
             STOP_SCHEMA,
             handle_codex_voice_stop,
-            "Stop Voice and leave the Codex task open.",
+            "After computer_use ended Codex Voice, clear companion state and leave the Codex task open.",
         ),
     ):
         ctx.register_tool(
@@ -46,4 +53,4 @@ def register(ctx) -> None:
             check_fn=check_windows,
             description=description,
         )
-    ctx.register_skill("codex_voice", Path(__file__).parent / "SKILL.md")
+    ctx.register_skill("codex_voice", skill_markdown_path())
