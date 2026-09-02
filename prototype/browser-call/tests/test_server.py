@@ -1,7 +1,10 @@
 import asyncio
+import subprocess
 import sys
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from aiohttp.test_utils import TestClient, TestServer
@@ -131,6 +134,8 @@ class PageContractTests(unittest.TestCase):
         self.assertIn("getUserMedia", self.js)
         self.assertIn("isSecureContext", self.js)
         self.assertIn("iceServers: []", self.js)
+        self.assertGreaterEqual(self.js.count('iceGatheringState === "complete"'), 2)
+        self.assertIn("window.setTimeout(finish, 2000)", self.js)
 
     def test_page_contains_no_inline_script(self):
         self.assertNotIn("<script>", self.html)
@@ -142,6 +147,108 @@ class ServerStateTests(unittest.IsolatedAsyncioTestCase):
         call_server = server.BrowserCallServer()
         await call_server.close()
         await call_server.close()
+        self.assertFalse(call_server.active)
+
+
+class ProcessLoopbackSourceTests(unittest.TestCase):
+    def test_read_pads_silence_and_bounds_buffer(self):
+        source = server.ProcessLoopbackSource()
+        with source._lock:
+            source._buffer.extend(b"\x01\x00\x02\x00")
+        padded = source.read(12)
+        self.assertEqual(len(padded), 12)
+        self.assertEqual(padded[:4], b"\x01\x00\x02\x00")
+        self.assertEqual(padded[4:], b"\x00" * 8)
+        source.close()
+
+    def test_header_timeout_stops_owned_child(self):
+        created = []
+
+        class FakeStdout:
+            def read(self, _n):
+                time.sleep(2)
+                return b""
+
+            def close(self):
+                return None
+
+        class FakeStdin:
+            def write(self, _data):
+                return 1
+
+            def flush(self):
+                return None
+
+            def close(self):
+                return None
+
+        class FakeProc:
+            def __init__(self):
+                self.stdin = FakeStdin()
+                self.stdout = FakeStdout()
+                self.stderr = None
+                self.killed = False
+                self._code = None
+
+            def poll(self):
+                return self._code
+
+            def wait(self, timeout=None):
+                if self._code is None:
+                    raise subprocess.TimeoutExpired(cmd="helper", timeout=timeout)
+                return self._code
+
+            def terminate(self):
+                self.kill()
+
+            def kill(self):
+                self.killed = True
+                self._code = 1
+
+        def fake_popen(*_args, **_kwargs):
+            proc = FakeProc()
+            created.append(proc)
+            return proc
+
+        source = server.ProcessLoopbackSource()
+        with patch.object(server, "ensure_process_loopback_helper", return_value=Path("helper.exe")):
+            with patch.object(server, "find_unique_codex_process", return_value=42):
+                with patch.object(subprocess, "Popen", fake_popen):
+                    with self.assertRaises((TimeoutError, RuntimeError)):
+                        source.start(header_timeout_s=0.2)
+        self.assertTrue(created[0].killed)
+        self.assertTrue(source._closed)
+
+
+class CloseOrderTests(unittest.IsolatedAsyncioTestCase):
+    async def test_close_stops_outgoing_even_if_consume_hangs(self):
+        class HangingSink:
+            def __init__(self):
+                self.closed = False
+
+            async def consume(self, _track):
+                await asyncio.Event().wait()
+
+            def close(self):
+                self.closed = True
+
+        class FakeOutgoing:
+            def __init__(self):
+                self.stopped = False
+
+            def stop(self):
+                self.stopped = True
+
+        call_server = server.BrowserCallServer()
+        sink = HangingSink()
+        outgoing = FakeOutgoing()
+        hang = asyncio.create_task(sink.consume(None))
+        call_server._sink = sink
+        call_server._outgoing = outgoing
+        call_server._tasks.add(hang)
+        await asyncio.wait_for(call_server.close(), timeout=1)
+        self.assertTrue(outgoing.stopped)
+        self.assertTrue(sink.closed)
         self.assertFalse(call_server.active)
 
 

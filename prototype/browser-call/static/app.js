@@ -22,13 +22,19 @@ function setStatus(message) {
 function waitForIceGathering(pc) {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
   return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      pc.removeEventListener("icegatheringstatechange", listener);
+      resolve();
+    };
     const listener = () => {
-      if (pc.iceGatheringState === "complete") {
-        pc.removeEventListener("icegatheringstatechange", listener);
-        resolve();
-      }
+      if (pc.iceGatheringState === "complete") finish();
     };
     pc.addEventListener("icegatheringstatechange", listener);
+    if (pc.iceGatheringState === "complete") finish();
+    window.setTimeout(finish, 2000);
   });
 }
 

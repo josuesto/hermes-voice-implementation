@@ -110,7 +110,10 @@ class CableAudioSink:
                     if audio.ndim != 2:
                         raise RuntimeError("unsupported browser audio shape")
                     packed = np.ascontiguousarray(audio.T)
-                    self._stream.write(packed)
+                    stream = self._stream
+                    if stream is None:
+                        return
+                    await asyncio.to_thread(stream.write, packed)
                     self.frames_forwarded += int(packed.shape[0])
         except (MediaStreamError, asyncio.CancelledError):
             raise
@@ -262,7 +265,7 @@ class ProcessLoopbackSource:
         self._closed = False
         self._failed = False
 
-    def start(self) -> None:
+    def start(self, header_timeout_s: float = 15.0) -> None:
         if self._process is not None:
             return
         helper = ensure_process_loopback_helper()
@@ -271,26 +274,55 @@ class ProcessLoopbackSource:
             [str(helper), "--pid", str(pid), "--raw"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             bufsize=0,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         self._process = process
-        assert process.stdout is not None
-        header = process.stdout.read(12)
-        if len(header) != 12 or header[:4] != b"HVPC":
+        try:
+            assert process.stdout is not None
+            header = self._read_pipe(process.stdout, 12, header_timeout_s)
+            if len(header) != 12 or header[:4] != b"HVPC":
+                raise RuntimeError("Codex process-loopback activation failed")
+            sample_rate, channels, bits = struct.unpack("<IHH", header[4:])
+            if (sample_rate, channels, bits) != (SAMPLE_RATE, 2, 16):
+                raise RuntimeError("Codex process-loopback format is unsupported")
+            self._reader = threading.Thread(
+                target=self._read_loop,
+                name="hermes-voice-process-loopback",
+                daemon=True,
+            )
+            self._reader.start()
+        except Exception:
             self.close()
-            raise RuntimeError("Codex process-loopback activation failed")
-        sample_rate, channels, bits = struct.unpack("<IHH", header[4:])
-        if (sample_rate, channels, bits) != (SAMPLE_RATE, 2, 16):
-            self.close()
-            raise RuntimeError("Codex process-loopback format is unsupported")
-        self._reader = threading.Thread(
-            target=self._read_loop,
-            name="hermes-voice-process-loopback",
-            daemon=True,
+            raise
+
+    def _read_pipe(self, pipe, byte_count: int, timeout_s: float) -> bytes:
+        collected = bytearray()
+        errors: list[BaseException] = []
+
+        def target() -> None:
+            try:
+                remaining = byte_count
+                while remaining > 0:
+                    chunk = pipe.read(remaining)
+                    if not chunk:
+                        break
+                    collected.extend(chunk)
+                    remaining -= len(chunk)
+            except BaseException as exc:
+                errors.append(exc)
+
+        worker = threading.Thread(
+            target=target, name="hermes-voice-loopback-header", daemon=True
         )
-        self._reader.start()
+        worker.start()
+        worker.join(timeout_s)
+        if worker.is_alive():
+            raise TimeoutError("Codex process-loopback activation timed out")
+        if errors:
+            raise errors[0]
+        return bytes(collected)
 
     def _read_loop(self) -> None:
         process = self._process
@@ -343,10 +375,9 @@ class ProcessLoopbackSource:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=1)
-            for pipe in (process.stdout, process.stderr):
-                if pipe is not None:
-                    with contextlib.suppress(OSError):
-                        pipe.close()
+            if process.stdout is not None:
+                with contextlib.suppress(OSError):
+                    process.stdout.close()
         reader, self._reader = self._reader, None
         if reader is not None and reader is not threading.current_thread():
             reader.join(timeout=1)
@@ -510,16 +541,18 @@ class BrowserCallServer:
     async def close(self) -> None:
         pc, self._pc = self._pc, None
         outgoing, self._outgoing = self._outgoing, None
+        sink, self._sink = self._sink, None
         tasks, self._tasks = tuple(self._tasks), set()
+        if sink is not None:
+            sink.close()
+        if outgoing is not None:
+            outgoing.stop()
         for task in tasks:
             task.cancel()
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        if self._sink is not None:
-            self._sink.close()
-            self._sink = None
-        if outgoing is not None:
-            outgoing.stop()
+            _done, pending = await asyncio.wait(tasks, timeout=2)
+            for task in pending:
+                task.cancel()
         if pc is not None and pc.connectionState != "closed":
             await pc.close()
 
