@@ -76,7 +76,11 @@ Stop:
 1. App-scoped `computer_use` ends Voice and a post-action capture shows it ended.
 2. `codex_voice_stop` cooperatively stops the audio route and returns `inactive`. The Codex task remains open.
 
-## One-cycle acceptance (do not run until Codex review)
+## Acceptance result — 2026-09-02
+
+Accepted on the reference PC. A real Telegram request caused Hermes to follow the task flow, ask for model and effort, start real Codex Voice, and automatically route the configured Blue Snowball into VB-CABLE; the user confirmed Codex heard the routed speech. The installed companion also passed a direct start/status/stop lifecycle check. The owner intentionally declined a redundant Telegram stop-click check; that visible orchestration remains unexercised but is not an MVP blocker under the risk-based review policy.
+
+Acceptance procedure:
 
 1. PC awake, unlocked, signed into Codex. VB-CABLE installed.
 2. Telegram: start a new Codex Voice conversation, or name a conversation to resume.

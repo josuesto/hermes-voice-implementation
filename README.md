@@ -5,7 +5,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **A working same-host prototype exists; there is no packaged release yet.** MVP-01 proves Windows playback, in-memory system-output loopback, and the installed VB-CABLE route with 18 passing tests and no saved audio. The user also confirmed that continuously routed Blue Snowball audio reaches real Codex Voice. MVP-02 plugin version 0.3.0 is installed and enabled: it owns the audio-stream lifecycle, preserves the saved new/resume picker, and requires Hermes to ask for and post-Voice verify the model and reasoning effort. The full Telegram-controlled cycle is the next acceptance test.
+> **A working same-host prototype exists; there is no packaged release yet.** MVP-01 proves Windows playback, in-memory system-output loopback, and the installed VB-CABLE route with 18 passing tests and no saved audio. MVP-02 is accepted: plugin version 0.3.0 is installed and enabled, and a real Telegram request successfully selected the task, asked for model and effort, started Voice, and carried continuously routed Blue Snowball audio into Codex. The companion's installed stop lifecycle was also exercised directly; a redundant Telegram stop click was intentionally not required for MVP acceptance.
 
 ## Intended flow
 
