@@ -1,11 +1,11 @@
 # MVP-02 local Hermes Codex Voice control
 
-Development slice for same-host Windows. Hermes calls three tools. The user does not open Codex, create the task, or click Voice. Phone and browser work are out of scope. Existing-task resume is out of scope. Do not touch the preserved CP-013 disposable task.
+Development slice for same-host Windows. Hermes calls three tools. Phone and browser work are out of scope. App Server and CP-013 stable-ID resume stay out of scope. Visible conversation resume uses Hermes `computer_use` then `codex_voice_start` with `mode=current`. Do not touch the preserved CP-013 disposable task.
 
 ## Layout
 
 - `plugin/hermes_voice/` is the Hermes plugin (`register(ctx)` with `ctx.register_tool`).
-- `companion/codex_control.py` is the Windows companion: packaged Codex activation, fresh-task UIA scoped to the unique Codex window, Voice start, then VB-CABLE microphone select/verify, then ready/stop.
+- `companion/codex_control.py` is the Windows companion: packaged Codex activation, optional fresh-task UIA scoped to the unique Codex window, Voice start, then VB-CABLE microphone select/verify, then ready/stop.
 - Status values: `inactive`, `starting`, `ready`, `stopping`, `failed`.
 - Tool JSON keys: `ok`, `status`, and `error` when failed.
 
@@ -34,7 +34,7 @@ python -m pip install comtypes
 
 ## Tests
 
-Audio spike (13) plus companion/plugin fakes (19):
+Audio spike (13) plus companion/plugin fakes (25):
 
 ```
 .\prototype\windows-bridge\.venv\Scripts\python.exe -m unittest discover -s prototype\windows-bridge\tests -v
@@ -43,16 +43,16 @@ Audio spike (13) plus companion/plugin fakes (19):
 
 ## One-cycle acceptance (do not run until Codex review)
 
-1. PC awake, unlocked, signed into Codex. VB-CABLE installed. Start opens Voice first, then selects `CABLE Output (VB-Audio Virtual Cable)` and verifies it before reporting ready.
-2. Telegram to same-host Hermes: start Codex Voice.
-3. Hermes calls `codex_voice_start` only. Status becomes `ready`. Voice ready is a Stop voice or Mute microphone control, not merely a Codex process. The microphone is the named CABLE Output control, not a physical mic.
+1. PC awake, unlocked, signed into Codex. VB-CABLE installed. `mode=new` creates a fresh task. `mode=current` uses the conversation already selected in Codex. Both open Voice, then select `CABLE Output (VB-Audio Virtual Cable)` and verify it before reporting ready.
+2. Telegram to same-host Hermes: start a new Codex Voice conversation, or name a conversation to resume.
+3. For new, Hermes calls `codex_voice_start` with `mode=new`. For resume, Hermes uses `computer_use` (app-scoped `mode=ax`, SOM only if needed) to list and select, then calls `codex_voice_start` with `mode=current`. Status becomes `ready`. Voice ready is a Stop voice or Mute microphone control, not merely a Codex process. The microphone is the named CABLE Output control, not a physical mic.
 4. Play a short non-sensitive phrase into `CABLE Input`. Codex hears it on `CABLE Output`.
-5. Telegram: stop Voice. Hermes calls `codex_voice_stop`. Status becomes `inactive`. The fresh task remains open. No delete, cancel, archive, or Codex kill.
+5. Telegram: stop Voice. Hermes calls `codex_voice_stop`. Status becomes `inactive`. The Codex task remains open. No delete, cancel, archive, or Codex kill.
 
 ## Limits
 
 - One owned Voice session.
-- `codex_voice_start` is idempotent when that session is already ready.
+- `codex_voice_start` requires `mode=new` or `mode=current`. It is idempotent when that Voice session is already ready.
 - Unowned Voice fails with `conflicting_voice`.
 - Missing or unselected CABLE Output fails closed. The physical PC microphone is never a silent fallback.
 - No force-kill of Codex. Stop releases companion state and Voice only.

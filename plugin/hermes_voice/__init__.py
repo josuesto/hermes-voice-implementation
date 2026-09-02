@@ -23,7 +23,7 @@ def register(ctx) -> None:
             "codex_voice_start",
             START_SCHEMA,
             handle_codex_voice_start,
-            "Launch Codex if needed, create a fresh task, start Voice, and verify ready.",
+            "Launch Codex if needed, start Voice, and verify ready. mode=new creates a fresh task. mode=current uses the selected conversation.",
         ),
         (
             "codex_voice_status",

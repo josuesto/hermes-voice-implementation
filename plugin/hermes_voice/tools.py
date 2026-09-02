@@ -13,14 +13,32 @@ _EMPTY_PARAMS: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
+_MODE_PARAMS: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "mode": {
+            "type": "string",
+            "enum": ["new", "current"],
+            "description": (
+                "new creates a fresh Codex task then starts Voice. "
+                "current starts Voice on the conversation already selected in Codex."
+            ),
+        }
+    },
+    "required": ["mode"],
+    "additionalProperties": False,
+}
+
 START_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_start",
     "description": (
         "On this Windows PC, launch the store-signed Codex desktop app if needed, "
-        "create a fresh task, start real Voice, and verify Voice is ready. "
-        "Does not resume existing tasks and does not accept task IDs or titles."
+        "start real Voice, select and verify VB-CABLE, and report ready. "
+        "mode=new creates a fresh task. mode=current uses the currently selected "
+        "conversation and does not create, close, rename, or archive a task. "
+        "Does not accept task IDs, titles, or App Server resume keys."
     ),
-    "parameters": _EMPTY_PARAMS,
+    "parameters": _MODE_PARAMS,
 }
 
 STATUS_SCHEMA: Dict[str, Any] = {
@@ -35,7 +53,7 @@ STATUS_SCHEMA: Dict[str, Any] = {
 STOP_SCHEMA: Dict[str, Any] = {
     "name": "codex_voice_stop",
     "description": (
-        "Stop Codex Voice and release companion state. Leaves the fresh Codex "
+        "Stop Codex Voice and release companion state. Leaves the Codex "
         "task open. Does not delete, cancel, archive, or close the task."
     ),
     "parameters": _EMPTY_PARAMS,

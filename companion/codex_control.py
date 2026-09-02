@@ -1,9 +1,10 @@
 """Owned Codex Voice lifecycle for same-host Hermes.
 
-Launch uses packaged activation only. Fresh-task and Voice actions use
-semantic UI Automation names scoped to one verified Codex window. Status
-and errors are allowlisted. Task titles, IDs, prompts, audio, and
-accessibility trees are never persisted.
+Launch uses packaged activation only. Fresh-task (mode=new) and Voice
+actions use semantic UI Automation names scoped to one verified Codex
+window. mode=current skips task creation. Status and errors are
+allowlisted. Task titles, IDs, prompts, audio, and accessibility trees
+are never persisted.
 """
 
 from __future__ import annotations
@@ -28,9 +29,11 @@ ERRORS = (
     "voice_start_failed",
     "voice_not_ready",
     "stop_failed",
+    "mode_required",
 )
 RESULT_KEYS = ("ok", "status", "error")
 RESUME_KEYS = frozenset({"task_id", "thread_id", "title", "resume", "task_title"})
+START_MODES = ("new", "current")
 CABLE_MIC_NAME = "CABLE Output (VB-Audio Virtual Cable)"
 NEW_TASK_NAMES = ("New task", "New chat", "New thread")
 VOICE_START_NAMES = ("Voice", "Start voice", "Voice mode")
@@ -187,6 +190,10 @@ class CodexVoiceController:
         if RESUME_KEYS.intersection(params):
             self.session.status = "failed"
             return allowlisted(False, "failed", "resume_unsupported")
+        mode = params.get("mode")
+        if mode not in START_MODES:
+            self.session.status = "failed"
+            return allowlisted(False, "failed", "mode_required")
         if not self._guard.is_windows():
             self.session.status = "failed"
             return allowlisted(False, "failed", "not_windows")
@@ -215,10 +222,14 @@ class CodexVoiceController:
                 self.session.status = "failed"
                 return allowlisted(False, "failed", "launch_failed")
 
-        if not self._ui.invoke_new_task():
+        if mode == "new":
+            if not self._ui.invoke_new_task():
+                self.session.status = "failed"
+                return allowlisted(False, "failed", "fresh_task_failed")
+            self.session.created_fresh_task = True
+        elif not self._ui.main_window_present():
             self.session.status = "failed"
-            return allowlisted(False, "failed", "fresh_task_failed")
-        self.session.created_fresh_task = True
+            return allowlisted(False, "failed", "launch_failed")
 
         if not self._ui.invoke_voice_start():
             self.session.status = "failed"

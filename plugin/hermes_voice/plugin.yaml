@@ -1,6 +1,6 @@
 name: hermes_voice
-version: 0.1.0
-description: Same-host Windows tools that launch Codex, create a fresh task, start real Voice, verify ready, and stop Voice without deleting the task.
+version: 0.1.1
+description: Same-host Windows tools that launch Codex, start real Voice on a new or currently selected conversation, verify ready, and stop Voice without deleting the task.
 author: hermes-voice-implementation
 kind: standalone
 platforms:
