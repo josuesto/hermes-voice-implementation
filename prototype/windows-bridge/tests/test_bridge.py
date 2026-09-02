@@ -81,6 +81,37 @@ class ListSanitizeTests(unittest.TestCase):
         ]
         self.assertTrue(bridge.has_programmable_mic(rows))
 
+    def test_pick_exact_wasapi_input_and_output(self):
+        hostapis = [{"name": "MME"}, {"name": "Windows WASAPI"}]
+        devices = [
+            {"name": "Mic", "hostapi": 0, "max_input_channels": 1, "max_output_channels": 0},
+            {"name": "Mic", "hostapi": 1, "max_input_channels": 1, "max_output_channels": 0},
+            {"name": "Cable", "hostapi": 1, "max_input_channels": 0, "max_output_channels": 2},
+        ]
+        self.assertEqual(
+            bridge.pick_wasapi_device_index(
+                devices, hostapis, name="Mic", direction="input"
+            ),
+            1,
+        )
+        self.assertEqual(
+            bridge.pick_wasapi_device_index(
+                devices, hostapis, name="Cable", direction="output"
+            ),
+            2,
+        )
+
+    def test_pick_wasapi_device_fails_on_ambiguity(self):
+        hostapis = [{"name": "Windows WASAPI"}]
+        devices = [
+            {"name": "Mic", "hostapi": 0, "max_input_channels": 1, "max_output_channels": 0},
+            {"name": "Mic", "hostapi": 0, "max_input_channels": 2, "max_output_channels": 0},
+        ]
+        with self.assertRaises(RuntimeError):
+            bridge.pick_wasapi_device_index(
+                devices, hostapis, name="Mic", direction="input"
+            )
+
 
 class SessionRestoreTests(unittest.TestCase):
     def test_restore_without_snapshot_is_noop(self):

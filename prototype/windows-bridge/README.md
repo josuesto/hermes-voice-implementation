@@ -39,7 +39,7 @@ Play the tone while monitoring system-output loopback in memory:
 .\.venv\Scripts\python.exe bridge.py spike --seconds 1.0
 ```
 
-Forward a physical microphone to `CABLE Input` for a bounded local test. Use a physical capture index from `list`; never choose a loopback or `CABLE Output` row:
+Forward a physical microphone to `CABLE Input` for a bounded local test. Use a physical capture index from `list`; never choose a loopback or `CABLE Output` row. The route uses one continuous low-latency WASAPI callback stream so speech is not fragmented between separate record/play operations:
 
 ```
 .\.venv\Scripts\python.exe bridge.py route-mic --source 7 --seconds 15

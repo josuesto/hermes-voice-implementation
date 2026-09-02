@@ -260,6 +260,29 @@ def _route_devices(source_index: int) -> tuple[Any, Any]:
     return source, sinks[0]
 
 
+def pick_wasapi_device_index(
+    devices: Any,
+    hostapis: Any,
+    *,
+    name: str,
+    direction: str,
+) -> int:
+    """Resolve one exact PortAudio WASAPI device for input or output."""
+    channel_key = "max_input_channels" if direction == "input" else "max_output_channels"
+    matches = []
+    for index, device in enumerate(devices):
+        hostapi = hostapis[int(device["hostapi"])]
+        if (
+            str(hostapi["name"]) == "Windows WASAPI"
+            and str(device["name"]) == name
+            and int(device[channel_key]) > 0
+        ):
+            matches.append(index)
+    if len(matches) != 1:
+        raise RuntimeError(f"Exactly one WASAPI {direction} device named {name!r} is required.")
+    return matches[0]
+
+
 def _adapt_channels(chunk: Any, output_channels: int) -> Any:
     import numpy as np
 
@@ -282,32 +305,66 @@ def _adapt_channels(chunk: Any, output_channels: int) -> Any:
 
 def cmd_route_mic(source: int, seconds: float) -> int:
     """Forward one physical capture endpoint to standard VB-CABLE in memory."""
+    global _MONITOR_ACTIVE
+
     import numpy as np
+    import sounddevice as sd
 
     if seconds <= 0:
         print("running=false error=seconds_required")
         return 2
     microphone, cable_input = _route_devices(source)
-    input_channels = max(1, min(2, int(microphone.channels)))
-    output_channels = max(1, min(2, int(cable_input.channels)))
-    block_frames = int(SAMPLE_RATE * 0.02)
+    devices = sd.query_devices()
+    hostapis = sd.query_hostapis()
+    input_index = pick_wasapi_device_index(
+        devices, hostapis, name=str(microphone.name), direction="input"
+    )
+    output_index = pick_wasapi_device_index(
+        devices, hostapis, name=str(cable_input.name), direction="output"
+    )
+    input_channels = max(1, min(2, int(devices[input_index]["max_input_channels"])))
+    output_channels = max(1, min(2, int(devices[output_index]["max_output_channels"])))
     deadline = time.monotonic() + seconds
-    frames = 0
-    peak = 0.0
+    metrics = {"frames": 0, "peak": 0.0, "status_events": 0}
+
+    def _callback(indata, outdata, frame_count, _time_info, status) -> None:
+        if status:
+            metrics["status_events"] += 1
+        metrics["peak"] = max(metrics["peak"], float(np.max(np.abs(indata))))
+        metrics["frames"] += int(frame_count)
+        outdata[:] = _adapt_channels(indata, output_channels)
+
+    _clear_stop()
+    _MONITOR_ACTIVE = True
     print("running=true route=physical-mic-to-vb-cable saved_audio=false")
-    with (
-        microphone.recorder(samplerate=SAMPLE_RATE, channels=input_channels) as recorder,
-        cable_input.player(samplerate=SAMPLE_RATE, channels=output_channels) as player,
-    ):
-        while time.monotonic() < deadline:
-            chunk = recorder.record(numframes=block_frames)
-            peak = max(peak, float(np.max(np.abs(chunk))))
-            frames += int(chunk.shape[0])
-            player.play(_adapt_channels(chunk, output_channels))
-            del chunk
+    try:
+        with sd.Stream(
+            device=(input_index, output_index),
+            samplerate=SAMPLE_RATE,
+            blocksize=int(SAMPLE_RATE * 0.01),
+            channels=(input_channels, output_channels),
+            dtype="float32",
+            latency="low",
+            callback=_callback,
+        ):
+            while time.monotonic() < deadline and not _stop_requested():
+                time.sleep(0.05)
+    finally:
+        _MONITOR_ACTIVE = False
+        _write_session(
+            {
+                "running": False,
+                "peak_rms_proxy": round(metrics["peak"], 6),
+                "frames_seen": metrics["frames"],
+                "frames_discarded": metrics["frames"],
+                "saved_audio": False,
+            }
+        )
     print(
-        f"running=false route=physical-mic-to-vb-cable peak_rms_proxy={round(peak, 6)} "
-        f"frames_forwarded={frames} saved_audio=false"
+        f"running=false route=physical-mic-to-vb-cable "
+        f"peak_rms_proxy={round(metrics['peak'], 6)} "
+        f"frames_forwarded={metrics['frames']} status_events={metrics['status_events']} "
+        "saved_audio=false"
     )
     return 0
 
