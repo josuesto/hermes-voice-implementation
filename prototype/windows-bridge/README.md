@@ -1,6 +1,6 @@
 # Windows audio spike (MVP-01)
 
-This prototype proves local playback and WASAPI loopback on this PC. It does not record audio. It does not change Windows default devices. It does not start Codex Voice by itself.
+This prototype proves local playback, WASAPI loopback, and the installed VB-CABLE route on the reference PC. It does not record audio. It does not change Windows default devices. It does not start Codex Voice by itself; Hermes-controlled Codex/Voice startup is the next milestone.
 
 Python 3.13 via `py -3` is the runtime. Do not use the Hermes agent venv.
 
@@ -60,15 +60,13 @@ Private machine notes belong in the gitignored `work/mvp-01/` directory at the r
 
 ## Codex Voice
 
-Codex desktop on this PC is the store-signed `OpenAI.Codex` package. Open it from the Start menu as ChatGPT or Codex. Create a **fresh** task. Click Voice manually. Do not open, rename, archive, or inspect the preserved CP-013 test task. Existing-task resume is out of scope.
+Codex desktop on the reference PC is the store-signed `OpenAI.Codex` package. Runtime startup must be performed by Hermes: launch Codex if needed, create a **fresh** task, start Voice, and verify that Voice is ready. Manual clicking is allowed during installation diagnostics only, not as the normal session flow. Do not open, rename, archive, or inspect the preserved CP-013 test task. Existing-task resume is out of scope.
 
-## Current limitation
+## Proven virtual-audio route
 
-Windows cannot inject PCM into a physical microphone. A two-way Voice path needs a virtual cable: a playback sink that forwards into a capture source Codex can select as its microphone.
+Windows cannot inject PCM into a physical microphone, so the reference PC uses VB-CABLE. `CABLE Input` is the programmatic playback sink and `CABLE Output` is the capture endpoint that Codex Voice must use as its microphone. An in-memory test proved this route without saving audio. Selection and Voice-ready verification now belong to the Hermes/Codex control milestone.
 
-This machine currently has no such endpoint. The spike can play a test tone and monitor system output through WASAPI loopback. It cannot feed audio into Codex Voice until a virtual cable is installed.
-
-## Missing dependency (do not install yet)
+## External dependency
 
 Exact option: **VB-CABLE Virtual Audio Device** from VB-Audio.
 
@@ -81,7 +79,7 @@ Exact option: **VB-CABLE Virtual Audio Device** from VB-Audio.
 - Restart: required after install and after uninstall.
 - Topology after install: `CABLE Input` is the playback sink; `CABLE Output` is the capture source Codex Voice can use.
 
-Do not download mirrors. Do not install until the user approves this exact package.
+Do not download mirrors. Installation requires the user's approval of the exact package. The reference PC installation was separately approved, completed, restarted, and verified; the project still does not redistribute the driver.
 
 ## What this spike will not do
 

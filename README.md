@@ -5,7 +5,7 @@ Hermes Voice Implementation is a planned free and open-source, Windows-first bri
 The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
 
 > [!WARNING]
-> **An early local prototype exists; there is no working release yet.** MVP-01 now proves Windows playback and in-memory system-output loopback with 13 passing tests. Two-way Codex Voice input remains blocked until the user installs a programmable virtual microphone. Exact existing-task resume and the legacy release-grade checkpoint gates are deferred.
+> **An early local prototype exists; there is no working release yet.** MVP-01 proves Windows playback, in-memory system-output loopback, and the installed VB-CABLE `CABLE Input -> CABLE Output` route with 13 passing tests and no saved audio. MVP-02 is active: Hermes must launch a fresh Codex task, start Voice, verify readiness, and own stop/cleanup before the browser is attached. Exact existing-task resume and the legacy release-grade checkpoint gates are deferred.
 
 ## Intended flow
 
@@ -39,7 +39,7 @@ The browser is the first release transport. A post-v1 optional Discord adapter i
 
 The project completed its baseline inventory, security boundaries, deterministic Codex launch, and recent-task discovery research. That work remains useful, but the active execution path is now the short [MVP roadmap](docs/mvp-roadmap.md). MVP implementation starts with a fresh task and the real Voice/audio loop.
 
-Existing paginated-task resume is unsupported under the tested interfaces and is deferred rather than blocking the prototype. MVP-01 may use a fresh task and a temporary manual Voice step. The next goal is a working local audio slice, followed by a LAN browser call, Hermes start/stop control, and user-owned Cloudflare access. The execution change is recorded in [ADR 0003](docs/adr/0003-vertical-slice-mvp-execution.md).
+Existing paginated-task resume is unsupported under the tested interfaces and is deferred rather than blocking the prototype. The audio slice is proven. The next goal is Hermes-controlled fresh-task launch plus real Voice start/ready/stop with no manual Codex interaction at runtime, followed by a LAN browser call and user-owned Cloudflare access. The execution change is recorded in [ADR 0003](docs/adr/0003-vertical-slice-mvp-execution.md).
 
 - [CP-003 implementation plan](docs/checkpoints/cp-003-privacy-threat-data-flow-implementation-plan.md)
 - [CP-004 implementation plan](docs/checkpoints/cp-004-feasibility-workspace-evidence-harness-implementation-plan.md)
