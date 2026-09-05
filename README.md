@@ -1,25 +1,25 @@
 # Hermes Voice Implementation
 
-Hermes Voice Implementation is a planned free and open-source, Windows-first bridge for using the **real Codex desktop Voice session** remotely from a phone browser. A user asks Hermes—usually through Telegram—to start a new Codex task or resume an existing one on their own awake, unlocked PC. Hermes then starts Codex Voice and returns a private browser link for two-way microphone/Codex audio over WebRTC.
+Hermes Voice Implementation is a free and open-source, Windows-first project for using the **real Codex desktop Voice session** remotely. The next call endpoint is a user-owned bot in a private Discord voice channel. The user asks Hermes through Telegram to start a new Codex task or resume an existing one on their awake, unlocked PC; Hermes starts Voice and connects the bot for direct two-way audio.
 
-The browser is the first release transport. A post-v1 optional Discord adapter is now on the roadmap: Hermes would start or stop the same Codex Voice session, and a user-owned bot would join one authorized Discord voice channel to carry audio without a web page. Discord does not gate the browser release and will reuse the same task, Voice, audio, and cleanup core.
+The owner selected Discord first on September 4, 2026. The unfinished browser transport is preserved for later work. Discord reuses the task, Voice, VB-CABLE, and process-capture core; it does not replace Codex with speech-to-text, TTS, or a different model. No transcription is included.
 
 > [!WARNING]
-> **Development is intentionally paused as of September 2, 2026; there is no packaged release yet.** A working same-host prototype exists. MVP-01 proves Windows playback and the installed VB-CABLE route with 18 passing tests and no saved audio. MVP-02 is accepted, and plugin version 0.5.0 is installed and enabled on the reference PC: a real Telegram request successfully selected the task, asked for model and effort, started Voice, and carried continuously routed Blue Snowball audio into Codex. MVP-03 has a persistent local WebRTC host, microphone selection and activity feedback, bounded browser/CABLE diagnostics, and a working Windows process-tree capture helper that returns only Codex audio. The remaining MVP-03 gate is one successful live browser-to-Codex-to-browser call and the phone-safe HTTPS/auth layer. See the [pause handoff](docs/pause-handoff-2026-09-02.md) before resuming.
+> **Resumed for Discord implementation on September 4, 2026; no packaged release or working Discord adapter yet.** MVP-01 Windows audio and MVP-02 Hermes-controlled Voice are accepted on the reference PC. At the September 2 pause, plugin 0.5.0 passed 89 Python tests and the browser-host lifecycle test, but a full browser-to-Codex-to-browser conversation remained unproven. Start with the [MVP-D01 worker plan](docs/mvp-d01-discord-voice.md). The [pause handoff](docs/pause-handoff-2026-09-02.md) remains a historical browser snapshot, not the next execution gate.
 
 ## Intended flow
 
 1. The user's Windows PC is awake, unlocked, and signed in to Codex; Hermes is available on that PC or another user-controlled host.
 2. The user messages Hermes to start a new Codex task or resume an existing one.
 3. Hermes asks which available model and reasoning effort to use, applies both to the selected task, and a local companion starts the real Voice mode.
-4. Hermes re-checks both settings after Voice startup, because Voice may change them, and sends the private link only after the complete session is verified ready.
-5. A compatible phone browser sends microphone input and receives only Codex audio through WebRTC.
+4. Hermes re-checks both settings after Voice startup, because Voice may change them, and confirms the configured Discord connection before enabling audio.
+5. The owner joins the private Discord voice channel from their phone. The bot forwards their microphone to Codex and returns only Codex audio. A brief leave/rejoin preserves the session without replaying queued speech.
 6. Ending the remote voice session stops the bridge and Voice mode while preserving the underlying Codex task.
 
 ## Core constraints
 
 - This is not a replacement voice model, remote desktop, or centrally hosted service.
-- Users own and control their Cloudflare or other provider resources; no custom domain is required.
+- Users own their Discord bot and PC bridge. The Discord path requires no Cloudflare deployment or custom domain; browser networking remains later work.
 - The bridge must never intentionally record audio or add transcripts.
 - It must capture only Codex audio and must not silently fall back to system audio or the PC's physical microphone.
 - Task selection, authentication, pairing, teardown, and recovery must fail closed.
@@ -32,9 +32,9 @@ The browser is the first release transport. A post-v1 optional Discord adapter i
 - **Windows companion:** manages lifecycle, authorization, task selection, networking, and cleanup.
 - **Codex adapter:** opens or resumes the exact desktop task and controls Voice mode.
 - **Audio engine:** routes phone microphone audio into Codex and captures only Codex output.
-- **Embedded phone page:** provides a minimal browser call interface over WebRTC.
-- **Optional Discord adapter (post-v1):** lets a user-owned bot expose the same session in one authorized Discord voice call under Hermes control.
-- **User-owned networking:** serves the page and signaling through provider-owned HTTPS/STUN/TURN resources.
+- **Discord adapter (next implementation):** lets a user-owned bot expose the same session in one authorized private voice channel under Hermes control.
+- **Embedded phone page (deferred):** preserves the existing browser call implementation for later validation.
+- **Browser networking (deferred):** serves the page and signaling through user-owned HTTPS/STUN/TURN resources.
 
 ## Project status
 
@@ -54,7 +54,7 @@ Existing paginated-task resume through the App Server is unsupported under the t
 
 See the active [MVP roadmap](docs/mvp-roadmap.md), the [detailed product plan](docs/plan.md), and the legacy [checkpoint map](docs/checkpoint-map.md).
 
-The optional transport boundary is recorded in [ADR 0002](docs/adr/0002-browser-first-optional-discord-voice-transport.md).
+The current transport decision is recorded in [ADR 0004](docs/adr/0004-discord-first-direct-audio.md), which supersedes ADR 0002's sequencing. Codex plans and reviews; Grok 4.6 in Cursor implements the next bounded slice.
 
 ## Important compatibility warning
 

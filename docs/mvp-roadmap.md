@@ -1,6 +1,6 @@
 # Hermes Voice Implementation — MVP Roadmap
 
-Status: intentionally paused at MVP-03 local validation on 2026-09-02
+Status: resumed on 2026-09-04; MVP-D01 Discord implementation handoff ready, live acceptance pending
 Decision date: 2026-09-01
 
 This roadmap supersedes the legacy checkpoint map as the gate for the first working prototype. The detailed checkpoint material remains useful research and later hardening guidance, but it no longer blocks vertical-slice implementation.
@@ -15,8 +15,8 @@ Acceleration changes sequencing and review depth, not the agreed product behavio
 - New and existing Codex tasks are both part of the intended flow. Hermes infers the mode when clear and asks when ambiguous. For the practical MVP, Hermes computer use may read the visible recent-task list and select a user-confirmed title; stronger stable-ID correlation remains release hardening.
 - Manual setup is acceptable, but manual runtime startup is not. Hermes must launch Codex, create or select the requested conversation, and start Voice before any end-to-end call is considered working.
 - Every new or resumed Voice call requires the user to choose the currently available Codex model and reasoning effort. Hermes sets and verifies both before Voice, then re-checks and corrects any automatic change after Voice starts.
-- LAN first, then user-owned Cloudflare remote access.
-- Browser call first; Discord remains post-MVP.
+- Discord is the next remote call transport, using the owner's bot and one private guild voice channel. No web deployment is required for this path.
+- Browser/LAN/Cloudflare work is retained but deferred. [ADR 0004](adr/0004-discord-first-direct-audio.md) supersedes the earlier transport order. No transcription is planned.
 
 ## Safety floor
 
@@ -40,7 +40,7 @@ These saved behaviors remain required even when they are implemented across succ
 - Remote infrastructure is user-owned. No mandatory shared project service or custom domain is required.
 - Supported clients are capability-based phone browsers, not one particular iPhone. iOS Safari/WebKit and Android Chromium are qualification targets.
 - Same-host Hermes ships first, but separate-host Hermes remains a planned supported topology.
-- The optional Discord voice adapter remains part of the roadmap and reuses the same Codex, Voice, audio, and lifecycle core.
+- The Discord voice adapter is now the next implementation slice and reuses the same Codex, Voice, audio, and lifecycle core. Browser-specific requirements remain attached to the deferred browser transport.
 
 ## Execution rules
 
@@ -56,13 +56,16 @@ These saved behaviors remain required even when they are implemented across succ
 |---|---|---|
 | MVP-01 | Windows audio path | Programmatic audio reaches `CABLE Output` through VB-CABLE, and system output is captured in memory without saving recordings. |
 | MVP-02 | Hermes-controlled local Codex Voice | From Telegram, Hermes supports the saved new/resume conversation flow: infer when clear, ask when ambiguous, show up to ten visible recent conversations when needed, open the confirmed conversation, ask for model and effort, and use deterministic tools for Voice/audio lifecycle. It launches Codex, continuously routes the configured physical microphone through VB-CABLE, verifies model and effort again after real Voice starts, and stops Voice/audio without deleting or cancelling the task. No manual Codex interaction is required at runtime. |
+| MVP-D01 | Direct Discord call, next active slice | Hermes starts new/current Codex Voice, verifies model/effort, and connects the owner's bot to one private channel. A real five-minute two-way phone call, brief leave/rejoin, and explicit task-preserving stop pass. No transcription. See the [bounded implementation plan](mvp-d01-discord-voice.md). |
 | MVP-03 | Local browser call | A broadly compatible phone browser on the LAN holds one intelligible two-way audio conversation with the Hermes-started Codex Voice session for five minutes. The minimal page includes connection state, microphone mute, Codex-output mute, and End Session; reconnect during the grace period does not require a new code; ending preserves the Codex task. |
 | MVP-04 | User-owned remote route | The same flow works away from home through a user-owned Cloudflare route with no custom domain required. Hermes is the on switch and sends the current usable link only after Voice and the route are ready. The permanent page cannot start Codex by itself; device trust and live-session authorization remain separate. |
 | MVP-05 | Usable package | One guided setup checks Codex/sign-in/Voice, Hermes topology, VB-CABLE, provider connection, and phone pairing. It installs the plugin and companion as one product, provides status/repair/uninstall, enforces one active session, and passes five consecutive calls on the reference setup. |
 | MVP-06 | Compatibility and topology hardening | Representative iOS Safari/WebKit and Android Chromium testing, foreground/background expectations, clearer failures, separate-host Hermes support, and installation documentation. |
-| MVP-07 | Optional Discord adapter | A user-owned Discord bot reuses the same lifecycle/audio core in one authorized voice channel. Post-MVP only. |
+| MVP-07 | Discord packaging and compatibility | The MVP-D01 route is packaged and qualified after the first live slice. Its previous post-MVP implementation dependency is superseded. |
 
 ## Current work
+
+The owner resumed work on 2026-09-04 to prioritize direct Discord audio. [MVP-D01](mvp-d01-discord-voice.md) is ready for Grok 4.6 implementation. No Discord adapter has been built or live-tested yet. Browser MVP-03 remains unaccepted and parked, not deleted. The pause handoff below records the earlier browser state; its browser-first next action is superseded by MVP-D01.
 
 MVP-01 is complete on the reference PC. The local Python spike proves playback and in-memory WASAPI system-output loopback; 18 focused tests pass. The user installed the official VB-CABLE driver, an in-memory test proved the cable route, and a continuous WASAPI callback from the Blue Snowball into `CABLE Input` was heard successfully by real Codex Voice. No audio was saved.
 

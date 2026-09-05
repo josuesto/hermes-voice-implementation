@@ -1,6 +1,6 @@
 # ADR 0002: Browser First, Optional Discord Voice Transport Later
 
-- Status: Accepted roadmap boundary
+- Status: Sequencing superseded by [ADR 0004](0004-discord-first-direct-audio.md) on 2026-09-04; retained as historical rationale
 - Date: 2026-09-01
 - Decision owners: project maintainer and Codex planning authority
 
