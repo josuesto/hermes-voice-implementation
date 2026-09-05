@@ -1,6 +1,6 @@
 # MVP-D01: Direct Discord audio for Codex Voice
 
-Status: implementation handoff ready; code and live acceptance pending.
+Status: implementation reviewed and accepted for private setup on 2026-09-04; installation and live-call acceptance pending. See [the acceptance record](mvp-d01-implementation-review.md).
 Decision date: 2026-09-04.
 
 > [!IMPORTANT] Mandatory workflow
@@ -72,6 +72,28 @@ Run the three existing Python suites once in the Hermes Python runtime, plus foc
 Worker implements and tests, then stops for Codex review. No live Discord login/join, plugin install/enable, gateway restart, Codex operation, provider change, driver install, or publishing during that worker pass. Report exact changed files, commands/results, and any remaining blocker. Do not generate dozens of approval packets.
 
 After review and private owner setup, perform one live five-minute phone call started through Hermes. Verify intelligible speech both ways, Discord mute, a brief leave/rejoin without replay, persistence across a Hermes turn, and explicit Hermes stop that leaves Codex work intact. If a direction fails, inspect only its last successful stage and fix that boundary. Never substitute transcription to make the test appear successful. One call proves the slice; five consecutive successful calls remain the packaging acceptance target.
+
+## Setup and test commands
+
+Install the sidecar dependencies once on the owner PC:
+
+```
+npm ci --prefix companion/discord_voice/sidecar
+node companion/discord_voice/sidecar/src/index.mjs --check-deps
+```
+
+Use the Python interpreter from the Hermes runtime for the commands below; do not substitute an unrelated system Python. The browser suite is a parked regression check, not a Discord gate. Run any combined suite with a finite watchdog.
+
+```
+python -m unittest prototype.windows-bridge.tests.test_bridge
+python -m unittest companion.tests.test_codex_control
+python -m unittest prototype.browser-call.tests.test_server
+python -m unittest companion.discord_voice.tests.test_protocol companion.discord_voice.tests.test_audio_io companion.discord_voice.tests.test_transport
+node --test companion/discord_voice/sidecar/tests/*.test.mjs
+git diff --check
+```
+
+Owner-only live secrets stay in the Hermes process environment: `HERMES_VOICE_DISCORD_TOKEN`, `HERMES_VOICE_DISCORD_GUILD_ID`, `HERMES_VOICE_DISCORD_CHANNEL_ID`, and `HERMES_VOICE_DISCORD_OWNER_ID`. Setup details are in `companion/discord_voice/SETUP.md`. A library import and fake PCM delivery are not live Discord receive or Codex audibility proof.
 
 ## Primary references
 

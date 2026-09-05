@@ -5,7 +5,7 @@ Hermes Voice Implementation is a free and open-source, Windows-first project for
 The owner selected Discord first on September 4, 2026. The unfinished browser transport is preserved for later work. Discord reuses the task, Voice, VB-CABLE, and process-capture core; it does not replace Codex with speech-to-text, TTS, or a different model. No transcription is included.
 
 > [!WARNING]
-> **Resumed for Discord implementation on September 4, 2026; no packaged release or working Discord adapter yet.** MVP-01 Windows audio and MVP-02 Hermes-controlled Voice are accepted on the reference PC. At the September 2 pause, plugin 0.5.0 passed 89 Python tests and the browser-host lifecycle test, but a full browser-to-Codex-to-browser conversation remained unproven. Start with the [MVP-D01 worker plan](docs/mvp-d01-discord-voice.md). The [pause handoff](docs/pause-handoff-2026-09-02.md) remains a historical browser snapshot, not the next execution gate.
+> **Discord implementation reviewed on September 4, 2026; private setup and a real call are still pending.** Plugin 0.6.0 includes the owner-only Discord transport, DAVE-capable sidecar, and shared Windows audio path. The final independent Node suite passed 15 tests; focused Discord Python passed 15 in the preceding review. No live Discord audibility or installed 0.6.0 runtime is claimed. See the [implementation review](docs/mvp-d01-implementation-review.md) and [setup notes](companion/discord_voice/SETUP.md). The parked browser remains unaccepted; its historical [pause handoff](docs/pause-handoff-2026-09-02.md) does not gate Discord work.
 
 ## Intended flow
 

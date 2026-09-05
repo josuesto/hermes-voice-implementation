@@ -41,20 +41,48 @@ ERRORS = (
     "transport_conflict",
     "browser_dependency_missing",
     "browser_start_failed",
+    "discord_dependency_missing",
+    "discord_start_failed",
+    "discord_permission_missing",
+    "discord_config_missing",
+    "discord_not_connected",
 )
-RESULT_KEYS = ("ok", "status", "error", "url", "peer", "browser_audio", "cable")
+RESULT_KEYS = (
+    "ok",
+    "status",
+    "error",
+    "url",
+    "peer",
+    "browser_audio",
+    "cable",
+    "connection",
+    "audience",
+    "incoming",
+    "outgoing",
+)
 RESUME_KEYS = frozenset({"task_id", "thread_id", "title", "resume", "task_title"})
 START_MODES = ("new", "current")
-START_TRANSPORTS = ("physical_mic", "browser")
+START_TRANSPORTS = ("physical_mic", "browser", "discord")
 BROWSER_URL = "http://127.0.0.1:8765/"
 ALLOWED_URLS = frozenset({BROWSER_URL})
 PEER_STATES = frozenset({"none", "connecting", "connected", "failed"})
 BROWSER_AUDIO_STATES = frozenset({"no-peer", "silent", "receiving"})
 CABLE_STATES = frozenset({"inactive", "forwarding", "failed"})
+CONNECTION_STATES = frozenset({"idle", "connecting", "connected", "failed"})
+AUDIENCE_STATES = frozenset({"waiting_for_owner", "owner_present", "audience_blocked"})
+INCOMING_STATES = frozenset({"silent", "receiving", "failed"})
+OUTGOING_STATES = frozenset({"silent", "sending", "failed"})
 IDLE_BROWSER_DIAGNOSTICS = {
     "peer": "none",
     "browser_audio": "no-peer",
     "cable": "inactive",
+}
+IDLE_DISCORD_DIAGNOSTICS = {
+    "connection": "idle",
+    "audience": "waiting_for_owner",
+    "incoming": "silent",
+    "cable": "inactive",
+    "outgoing": "silent",
 }
 CABLE_MIC_NAME = "CABLE Output (VB-Audio Virtual Cable)"
 CABLE_INPUT_NAME = "CABLE Input (VB-Audio Virtual Cable)"
@@ -118,6 +146,16 @@ class BrowserTransport(Protocol):
     def stop(self) -> bool: ...
     def error(self) -> str | None: ...
     def diagnostics(self) -> dict[str, str]: ...
+
+
+class DiscordTransport(Protocol):
+    def start(self) -> bool: ...
+    def is_running(self) -> bool: ...
+    def stop(self) -> bool: ...
+    def error(self) -> str | None: ...
+    def diagnostics(self) -> dict[str, str]: ...
+    def connected(self) -> bool: ...
+    def set_audio_enabled(self, enabled: bool) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -188,6 +226,10 @@ def allowlisted(
     peer: str | None = None,
     browser_audio: str | None = None,
     cable: str | None = None,
+    connection: str | None = None,
+    audience: str | None = None,
+    incoming: str | None = None,
+    outgoing: str | None = None,
 ) -> dict[str, Any]:
     if status not in STATUSES:
         status = "failed"
@@ -203,6 +245,14 @@ def allowlisted(
         payload["browser_audio"] = browser_audio
     if cable in CABLE_STATES:
         payload["cable"] = cable
+    if connection in CONNECTION_STATES:
+        payload["connection"] = connection
+    if audience in AUDIENCE_STATES:
+        payload["audience"] = audience
+    if incoming in INCOMING_STATES:
+        payload["incoming"] = incoming
+    if outgoing in OUTGOING_STATES:
+        payload["outgoing"] = outgoing
     return {key: payload[key] for key in RESULT_KEYS if key in payload}
 
 
@@ -224,6 +274,7 @@ class CodexVoiceController:
         cable: CableMic,
         router: AudioRouter,
         browser: BrowserTransport | None = None,
+        discord: DiscordTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
         ready_wait_s: float = READY_WAIT_SECONDS,
         stop_wait_s: float = STOP_WAIT_SECONDS,
@@ -234,6 +285,7 @@ class CodexVoiceController:
         self._cable = cable
         self._router = router
         self._browser = browser or StaticBrowserTransport()
+        self._discord = discord or StaticDiscordTransport()
         self._sleep = sleep
         self._ready_wait_s = ready_wait_s
         self._stop_wait_s = stop_wait_s
@@ -282,6 +334,7 @@ class CodexVoiceController:
                 self.session.status,
                 include_url=self.session.status == "ready" and transport == "browser",
                 include_browser_diag=False,
+                include_discord_diag=False,
             )
         if not self._cable.output_present():
             self.session.status = "failed"
@@ -306,7 +359,7 @@ class CodexVoiceController:
                 return allowlisted(False, "failed", "launch_failed")
 
         if transport == "browser":
-            if self._router.is_running():
+            if self._router.is_running() or self._discord.is_running():
                 self.session.status = "failed"
                 self.session.transport = None
                 return allowlisted(False, "failed", "transport_conflict")
@@ -314,8 +367,17 @@ class CodexVoiceController:
                 self.session.status = "failed"
                 self.session.transport = None
                 return allowlisted(False, "failed", self._browser.error() or "browser_start_failed")
+        elif transport == "discord":
+            if self._router.is_running() or self._browser.is_running():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", "transport_conflict")
+            if not self._discord.start():
+                self.session.status = "failed"
+                self.session.transport = None
+                return allowlisted(False, "failed", self._discord.error() or "discord_start_failed")
         else:
-            if self._browser.is_running():
+            if self._browser.is_running() or self._discord.is_running():
                 self.session.status = "failed"
                 self.session.transport = None
                 return allowlisted(False, "failed", "transport_conflict")
@@ -327,7 +389,7 @@ class CodexVoiceController:
         self.session.created_fresh_task = mode == "new"
         self.session.owned = False
         self.session.status = "starting"
-        return self._result(True, "starting", include_url=False, include_browser_diag=False)
+        return self._result(True, "starting", include_url=False, include_browser_diag=False, include_discord_diag=False)
 
     def confirm(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
@@ -358,6 +420,10 @@ class CodexVoiceController:
             return allowlisted(False, "starting", "model_not_verified")
         if params.get("effort_verified") is not True:
             return allowlisted(False, "starting", "effort_not_verified")
+        if self.session.transport == "discord" and not self._discord.connected():
+            return allowlisted(False, "starting", "discord_not_connected")
+        if self.session.transport == "discord":
+            self._discord.set_audio_enabled(True)
         self.session.owned = True
         self.session.status = "ready"
         return self._result(
@@ -388,6 +454,8 @@ class CodexVoiceController:
             return self._browser.is_running()
         if self.session.transport == "physical_mic":
             return self._router.is_running()
+        if self.session.transport == "discord":
+            return self._discord.is_running()
         return False
 
     def _stop_bridges(self) -> bool:
@@ -396,6 +464,10 @@ class CodexVoiceController:
             ok = self._browser.stop() and ok
         if self.session.transport == "physical_mic" or self._router.is_running():
             ok = self._router.stop() and ok
+        if self.session.transport == "discord" or self._discord.is_running():
+            if hasattr(self._discord, "set_audio_enabled"):
+                self._discord.set_audio_enabled(False)
+            ok = self._discord.stop() and ok
         return ok
 
     def _result(
@@ -406,12 +478,18 @@ class CodexVoiceController:
         *,
         include_url: bool | None = None,
         include_browser_diag: bool | None = None,
+        include_discord_diag: bool | None = None,
     ) -> dict[str, Any]:
         url = None
         peer = None
         browser_audio = None
         cable = None
+        connection = None
+        audience = None
+        incoming = None
+        outgoing = None
         browser_active = self.session.transport == "browser" and self._browser.is_running()
+        discord_active = self.session.transport == "discord" and self._discord.is_running()
         if include_url is True:
             url = BROWSER_URL if browser_active else None
         elif include_url is None and browser_active and status in ("starting", "ready"):
@@ -423,6 +501,15 @@ class CodexVoiceController:
             peer = snapshot.get("peer")
             browser_audio = snapshot.get("browser_audio")
             cable = snapshot.get("cable")
+        if include_discord_diag is True or (
+            include_discord_diag is None and discord_active and status in ("starting", "ready")
+        ):
+            snapshot = self._discord.diagnostics()
+            connection = snapshot.get("connection")
+            audience = snapshot.get("audience")
+            incoming = snapshot.get("incoming")
+            cable = snapshot.get("cable")
+            outgoing = snapshot.get("outgoing")
         return allowlisted(
             ok,
             status,
@@ -431,6 +518,10 @@ class CodexVoiceController:
             peer=peer,
             browser_audio=browser_audio,
             cable=cable,
+            connection=connection,
+            audience=audience,
+            incoming=incoming,
+            outgoing=outgoing,
         )
 
     def _wait(self, predicate: Callable[[], bool], budget: float) -> bool:
@@ -609,6 +700,59 @@ class StaticBrowserTransport:
         return dict(self.diag)
 
 
+class StaticDiscordTransport:
+    def __init__(
+        self,
+        start_ok: bool = True,
+        stop_ok: bool = True,
+        failure: str = "discord_start_failed",
+        connected: bool = True,
+    ) -> None:
+        self.start_ok = start_ok
+        self.stop_ok = stop_ok
+        self.running = False
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.audio_enabled = False
+        self.audio_calls: list[bool] = []
+        self.failure = failure
+        self._connected = connected
+        self.diag = dict(IDLE_DISCORD_DIAGNOSTICS)
+
+    def start(self) -> bool:
+        self.start_calls += 1
+        self.running = self.start_ok
+        if self.running:
+            self.diag = dict(IDLE_DISCORD_DIAGNOSTICS)
+            self.diag["connection"] = "connected" if self._connected else "connecting"
+        return self.running
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def connected(self) -> bool:
+        return self.running and self._connected
+
+    def set_audio_enabled(self, enabled: bool) -> None:
+        self.audio_enabled = bool(enabled)
+        self.audio_calls.append(self.audio_enabled)
+
+    def stop(self) -> bool:
+        self.stop_calls += 1
+        if not self.stop_ok:
+            return False
+        self.running = False
+        self.audio_enabled = False
+        self.diag = dict(IDLE_DISCORD_DIAGNOSTICS)
+        return True
+
+    def error(self) -> str | None:
+        return None if self.running else self.failure
+
+    def diagnostics(self) -> dict[str, str]:
+        return dict(self.diag)
+
+
 class WinBrowserTransport:
     """Lazy owner of the loopback browser-call host."""
 
@@ -669,6 +813,82 @@ class WinBrowserTransport:
                 else "no-peer"
             ),
             "cable": snapshot.get("cable") if snapshot.get("cable") in CABLE_STATES else "inactive",
+        }
+
+
+class WinDiscordTransport:
+    """Lazy owner of the Discord sidecar and PCM bridge."""
+
+    def __init__(self) -> None:
+        self._inner: Any = None
+        self._last_error: str | None = None
+
+    def start(self) -> bool:
+        if self.is_running():
+            return True
+        try:
+            from companion.discord_voice.transport import DiscordVoiceTransport
+        except ImportError:
+            self._last_error = "discord_dependency_missing"
+            self._inner = None
+            return False
+        inner = DiscordVoiceTransport()
+        if not inner.start():
+            self._last_error = inner.error() or "discord_start_failed"
+            inner.stop()
+            self._inner = None
+            return False
+        self._inner = inner
+        self._last_error = None
+        return True
+
+    def is_running(self) -> bool:
+        inner = self._inner
+        return inner is not None and inner.is_running()
+
+    def connected(self) -> bool:
+        inner = self._inner
+        return inner is not None and inner.connected()
+
+    def set_audio_enabled(self, enabled: bool) -> None:
+        inner = self._inner
+        if inner is not None:
+            inner.set_audio_enabled(enabled)
+
+    def stop(self) -> bool:
+        inner, self._inner = self._inner, None
+        if inner is None:
+            return True
+        inner.set_audio_enabled(False)
+        return inner.stop()
+
+    def error(self) -> str | None:
+        inner = self._inner
+        if inner is not None:
+            return inner.error()
+        return self._last_error
+
+    def diagnostics(self) -> dict[str, str]:
+        inner = self._inner
+        if inner is None or not inner.is_running():
+            return dict(IDLE_DISCORD_DIAGNOSTICS)
+        snapshot = inner.diagnostics()
+        return {
+            "connection": (
+                snapshot.get("connection") if snapshot.get("connection") in CONNECTION_STATES else "failed"
+            ),
+            "audience": (
+                snapshot.get("audience")
+                if snapshot.get("audience") in AUDIENCE_STATES
+                else "waiting_for_owner"
+            ),
+            "incoming": (
+                snapshot.get("incoming") if snapshot.get("incoming") in INCOMING_STATES else "silent"
+            ),
+            "cable": snapshot.get("cable") if snapshot.get("cable") in CABLE_STATES else "inactive",
+            "outgoing": (
+                snapshot.get("outgoing") if snapshot.get("outgoing") in OUTGOING_STATES else "silent"
+            ),
         }
 
 
@@ -1336,6 +1556,7 @@ def build_windows_controller() -> CodexVoiceController:
         cable=WinCableMic(),
         router=WinAudioRouter(),
         browser=WinBrowserTransport(),
+        discord=WinDiscordTransport(),
     )
 
 
@@ -1361,6 +1582,10 @@ def dumps_result(result: dict[str, Any]) -> str:
             result.get("peer"),
             result.get("browser_audio"),
             result.get("cable"),
+            result.get("connection"),
+            result.get("audience"),
+            result.get("incoming"),
+            result.get("outgoing"),
         ),
         ensure_ascii=False,
     )

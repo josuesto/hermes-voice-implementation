@@ -14,6 +14,7 @@ from companion.codex_control import (  # noqa: E402
     StaticAudioRouter,
     StaticBrowserTransport,
     StaticCable,
+    StaticDiscordTransport,
     StaticGuard,
     StaticLauncher,
     StaticUi,
@@ -33,12 +34,14 @@ PLUGIN_SKILL = ROOT / "plugin" / "hermes_voice" / "SKILL.md"
 def _controller(
     router: StaticAudioRouter | None = None,
     browser: StaticBrowserTransport | None = None,
+    discord: StaticDiscordTransport | None = None,
     **ui_kw,
 ) -> tuple[CodexVoiceController, StaticUi, StaticLauncher]:
     ui = StaticUi(**ui_kw)
     launcher = StaticLauncher(present=True)
     router = router or StaticAudioRouter()
     browser = browser or StaticBrowserTransport()
+    discord = discord or StaticDiscordTransport()
     ctrl = CodexVoiceController(
         guard=StaticGuard(),
         launcher=launcher,
@@ -46,6 +49,7 @@ def _controller(
         cable=StaticCable(True),
         router=router,
         browser=browser,
+        discord=discord,
         sleep=lambda _s: None,
         ready_wait_s=0.0,
         stop_wait_s=0.0,
@@ -353,7 +357,7 @@ class TransportSelectionTests(unittest.TestCase):
     def test_transport_is_required(self):
         ctrl, ui, launcher = _controller()
         missing = ctrl.start({"mode": "new"})
-        invalid = ctrl.start({"mode": "new", "transport": "discord"})
+        invalid = ctrl.start({"mode": "new", "transport": "phone"})
         self.assertEqual(missing["error"], "transport_required")
         self.assertEqual(invalid["error"], "transport_required")
         self.assertEqual(ui.new_task_calls, 0)
@@ -370,6 +374,10 @@ class TransportSelectionTests(unittest.TestCase):
             self.assertNotIn("peer", payload)
             self.assertNotIn("browser_audio", payload)
             self.assertNotIn("cable", payload)
+            self.assertNotIn("connection", payload)
+            self.assertNotIn("audience", payload)
+            self.assertNotIn("incoming", payload)
+            self.assertNotIn("outgoing", payload)
         self.assertNotIn("url", allowlisted(True, "ready", url="http://evil.example/"))
 
     def test_browser_start_does_not_start_physical_router(self):
@@ -529,6 +537,95 @@ class TransportSelectionTests(unittest.TestCase):
         )
 
 
+class DiscordTransportTests(unittest.TestCase):
+    def test_discord_start_does_not_start_other_transports(self):
+        router = StaticAudioRouter()
+        browser = StaticBrowserTransport()
+        discord = StaticDiscordTransport()
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser, discord=discord)
+        started = _start(ctrl, transport="discord")
+        self.assertEqual(started, {"ok": True, "status": "starting"})
+        self.assertNotIn("url", started)
+        self.assertTrue(discord.running)
+        self.assertEqual(discord.start_calls, 1)
+        self.assertFalse(discord.audio_enabled)
+        self.assertFalse(router.running)
+        self.assertEqual(router.start_calls, 0)
+        self.assertFalse(browser.running)
+        self.assertEqual(browser.start_calls, 0)
+        status = ctrl.status()
+        self.assertEqual(status["connection"], "connected")
+        self.assertEqual(status["audience"], "waiting_for_owner")
+        self.assertNotIn("url", status)
+        self.assertNotIn("peer", status)
+        confirmed = _confirm(ctrl)
+        self.assertEqual(confirmed["status"], "ready")
+        self.assertTrue(discord.audio_enabled)
+        self.assertNotIn("url", confirmed)
+        self.assertEqual(ctrl.stop()["status"], "inactive")
+        self.assertFalse(discord.running)
+        self.assertEqual(discord.stop_calls, 1)
+        self.assertFalse(discord.audio_enabled)
+
+    def test_incomplete_confirm_does_not_stop_or_ungate_discord(self):
+        discord = StaticDiscordTransport()
+        ctrl, _ui, _launcher = _controller(discord=discord)
+        self.assertEqual(_start(ctrl, transport="discord")["status"], "starting")
+        denied = ctrl.confirm(
+            {"voice_visible": False, "model_verified": True, "effort_verified": True}
+        )
+        self.assertEqual(denied["error"], "voice_not_ready")
+        self.assertEqual(denied["status"], "starting")
+        self.assertTrue(discord.running)
+        self.assertFalse(discord.audio_enabled)
+        self.assertEqual(discord.stop_calls, 0)
+
+    def test_confirm_waits_for_connected_channel(self):
+        discord = StaticDiscordTransport(connected=False)
+        ctrl, _ui, _launcher = _controller(discord=discord)
+        self.assertEqual(_start(ctrl, transport="discord")["status"], "starting")
+        denied = _confirm(ctrl)
+        self.assertEqual(denied["error"], "discord_not_connected")
+        self.assertEqual(denied["status"], "starting")
+        self.assertTrue(discord.running)
+        self.assertFalse(discord.audio_enabled)
+        self.assertEqual(discord.stop_calls, 0)
+
+    def test_switching_to_discord_fails_closed(self):
+        router = StaticAudioRouter()
+        browser = StaticBrowserTransport()
+        discord = StaticDiscordTransport()
+        ctrl, _ui, _launcher = _controller(router=router, browser=browser, discord=discord)
+        self.assertEqual(_start(ctrl, transport="browser")["status"], "starting")
+        switched = _start(ctrl, transport="discord")
+        self.assertEqual(switched["error"], "transport_conflict")
+        self.assertEqual(switched["status"], "starting")
+        self.assertTrue(browser.running)
+        self.assertEqual(discord.start_calls, 0)
+        self.assertFalse(router.running)
+
+    def test_discord_results_drop_injected_identifiers(self):
+        self.assertNotIn(
+            "connection",
+            allowlisted(True, "ready", connection="guild:123"),
+        )
+        self.assertNotIn(
+            "audience",
+            allowlisted(True, "ready", audience="user-999"),
+        )
+        payload = allowlisted(
+            True,
+            "ready",
+            connection="connected",
+            audience="audience_blocked",
+            incoming="silent",
+            cable="inactive",
+            outgoing="silent",
+        )
+        self.assertEqual(payload["audience"], "audience_blocked")
+        self.assertNotIn("url", payload)
+
+
 class PluginToolTests(unittest.TestCase):
     def test_schemas_have_no_resume_fields(self):
         plugin_root = ROOT / "plugin" / "hermes_voice"
@@ -609,7 +706,8 @@ class PluginToolTests(unittest.TestCase):
         self.assertEqual(set(params["required"]), {"mode", "transport"})
         self.assertEqual(set(params["properties"]["mode"]["enum"]), {"new", "current"})
         self.assertEqual(
-            set(params["properties"]["transport"]["enum"]), {"physical_mic", "browser"}
+            set(params["properties"]["transport"]["enum"]),
+            {"physical_mic", "browser", "discord"},
         )
         self.assertEqual(params.get("additionalProperties"), False)
 
@@ -640,6 +738,9 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("transport", lowered)
         self.assertIn("physical_mic", text)
         self.assertIn("browser", lowered)
+        self.assertIn("discord", lowered)
+        self.assertIn("summon Codex", text)
+        self.assertIn("dismiss Codex", text)
         self.assertIn("http://127.0.0.1:8765/", text)
         self.assertIn("leave call", lowered)
         self.assertIn("pc microphone", lowered)
@@ -647,6 +748,7 @@ class PluginToolTests(unittest.TestCase):
         self.assertIn("hermes turn", lowered)
         self.assertIn("computer_use` failed", lowered)
         self.assertIn("explicitly asks to stop", lowered)
+        self.assertIn("dismiss", lowered)
 
     def test_skill_uses_setup_time_cable_and_runtime_voice(self):
         text = INDEXED_SKILL.read_text(encoding="utf-8")

@@ -27,11 +27,13 @@ _START_PARAMS: Dict[str, Any] = {
         },
         "transport": {
             "type": "string",
-            "enum": ["physical_mic", "browser"],
+            "enum": ["physical_mic", "browser", "discord"],
             "description": (
                 "physical_mic: route the configured PC microphone into VB-CABLE. "
                 "browser: start the loopback-only WebRTC call server at "
-                "http://127.0.0.1:8765/ and do not start the physical microphone router."
+                "http://127.0.0.1:8765/ and do not start the physical microphone router. "
+                "discord: start the owned Discord sidecar for one private guild voice "
+                "channel and do not start the physical microphone router or browser server."
             ),
         },
     },
@@ -75,9 +77,11 @@ START_SCHEMA: Dict[str, Any] = {
         "audio transport. transport=physical_mic starts the configured "
         "physical-microphone-to-VB-CABLE stream. transport=browser starts the "
         "loopback-only WebRTC server at http://127.0.0.1:8765/ and does not start the "
-        "physical microphone router. Returns starting. Does not click Voice or create "
-        "a task. After computer_use verifies the user's model and effort choices "
-        "survived Voice startup, call codex_voice_confirm. "
+        "physical microphone router. transport=discord starts the owned Discord sidecar "
+        "and does not start the physical microphone router or browser server. Returns "
+        "starting. Does not click Voice or create a task. After computer_use verifies "
+        "the user's model and effort choices survived Voice startup, call "
+        "codex_voice_confirm. "
         "mode=new is a new conversation. mode=current is the selected conversation. "
         "Does not accept task IDs, titles, URLs, or App Server resume keys."
     ),
@@ -92,7 +96,8 @@ CONFIRM_SCHEMA: Dict[str, Any] = {
         "CABLE Output (VB-Audio Virtual Cable) is configured once in Codex Settings, "
         "not selected per call. Call only while status is starting. All three verification "
         "flags must be true. For browser transport, the allowlisted localhost url is "
-        "returned only after status is ready. "
+        "returned only after status is ready. For Discord transport, audio stays gated "
+        "until Voice, model, and effort are verified and the voice channel is connected. "
         "Does not inspect conversation contents."
     ),
     "parameters": _CONFIRM_PARAMS,
@@ -104,7 +109,8 @@ STATUS_SCHEMA: Dict[str, Any] = {
         "Return the owned Codex Voice lifecycle state: inactive, starting, "
         "ready, stopping, or failed. For an active browser transport the allowlisted "
         "localhost url may be included, plus bounded peer, browser_audio, and cable "
-        "enums. No task content is returned."
+        "enums. For an active Discord transport bounded connection, audience, incoming, "
+        "cable, and outgoing enums may be included. No task content is returned."
     ),
     "parameters": _EMPTY_PARAMS,
 }
@@ -114,9 +120,9 @@ STOP_SCHEMA: Dict[str, Any] = {
     "description": (
         "Clear companion Voice session state after the user explicitly asked to stop "
         "or end Codex Voice, computer_use ended Voice, and a post-action capture showed "
-        "it ended. Cooperatively stops the physical microphone router or the owned "
-        "browser-call server. Do not use this as failure cleanup. Leaves the Codex task "
-        "open. Does not delete, cancel, archive, or close the task."
+        "it ended. Cooperatively stops the physical microphone router, the owned "
+        "browser-call server, or the Discord sidecar. Do not use this as failure cleanup. "
+        "Leaves the Codex task open. Does not delete, cancel, archive, or close the task."
     ),
     "parameters": _EMPTY_PARAMS,
 }

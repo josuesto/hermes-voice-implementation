@@ -1,6 +1,6 @@
 # Hermes Voice Implementation — MVP Roadmap
 
-Status: resumed on 2026-09-04; MVP-D01 Discord implementation handoff ready, live acceptance pending
+Status: MVP-D01 Discord implementation accepted for setup on 2026-09-04; installation and live acceptance pending
 Decision date: 2026-09-01
 
 This roadmap supersedes the legacy checkpoint map as the gate for the first working prototype. The detailed checkpoint material remains useful research and later hardening guidance, but it no longer blocks vertical-slice implementation.
@@ -65,7 +65,7 @@ These saved behaviors remain required even when they are implemented across succ
 
 ## Current work
 
-The owner resumed work on 2026-09-04 to prioritize direct Discord audio. [MVP-D01](mvp-d01-discord-voice.md) is ready for Grok 4.6 implementation. No Discord adapter has been built or live-tested yet. Browser MVP-03 remains unaccepted and parked, not deleted. The pause handoff below records the earlier browser state; its browser-first next action is superseded by MVP-D01.
+The owner resumed work on 2026-09-04 to prioritize direct Discord audio. Grok implemented [MVP-D01](mvp-d01-discord-voice.md), and Codex accepted the corrected implementation for private setup. The [review record](mvp-d01-implementation-review.md) distinguishes offline evidence from pending live acceptance: Node 15 passed in the final review, focused Discord Python 15 passed in the prior review, and the independent combined run timed out in a parked browser test. Plugin 0.6.0 is not yet installed or live-tested. The next action is private bot/channel configuration, installation, and a real call. Browser MVP-03 remains unaccepted and parked, not deleted. The pause handoff below records the earlier browser state.
 
 MVP-01 is complete on the reference PC. The local Python spike proves playback and in-memory WASAPI system-output loopback; 18 focused tests pass. The user installed the official VB-CABLE driver, an in-memory test proved the cable route, and a continuous WASAPI callback from the Blue Snowball into `CABLE Input` was heard successfully by real Codex Voice. No audio was saved.
 

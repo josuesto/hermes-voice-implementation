@@ -1,6 +1,6 @@
 name: hermes_voice
-version: 0.5.0
-description: Same-host Windows tools that launch Codex Voice, route either a configured physical microphone or a loopback browser call through VB-CABLE, and verify per-call model and effort choices.
+version: 0.6.0
+description: Same-host Windows tools that launch Codex Voice, route a configured physical microphone, a loopback browser call, or a Discord voice channel through VB-CABLE, and verify per-call model and effort choices.
 author: hermes-voice-implementation
 kind: standalone
 platforms:

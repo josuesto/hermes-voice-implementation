@@ -279,8 +279,8 @@ class ProcessLoopbackSourceTests(unittest.TestCase):
             return proc
 
         source = server.ProcessLoopbackSource()
-        with patch.object(server, "ensure_process_loopback_helper", return_value=Path("helper.exe")):
-            with patch.object(server, "find_unique_codex_process", return_value=42):
+        with patch("companion.audio_io.ensure_process_loopback_helper", return_value=Path("helper.exe")):
+            with patch("companion.audio_io.find_unique_codex_process", return_value=42):
                 with patch.object(subprocess, "Popen", fake_popen):
                     with self.assertRaises((TimeoutError, RuntimeError)):
                         source.start(header_timeout_s=0.2)

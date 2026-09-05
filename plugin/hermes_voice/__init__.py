@@ -24,7 +24,7 @@ def register(ctx) -> None:
             "codex_voice_start",
             START_SCHEMA,
             handle_codex_voice_start,
-            "When the user asks to start or resume Codex Voice, preflight and launch Codex, then start the chosen physical-mic or browser transport. Ask for model and effort, use computer_use, then confirm.",
+            "When the user asks to start, resume, summon, or join Codex Voice, preflight and launch Codex, then start the chosen physical-mic, browser, or Discord transport. Ask for model and effort, use computer_use, then confirm.",
         ),
         (
             "codex_voice_confirm",
@@ -42,7 +42,7 @@ def register(ctx) -> None:
             "codex_voice_stop",
             STOP_SCHEMA,
             handle_codex_voice_stop,
-            "After the user explicitly asked to stop Codex Voice and computer_use ended it, stop the owned transport, clear state, and leave the Codex task open.",
+            "After the user explicitly asked to stop or dismiss Codex Voice and computer_use ended it, stop the owned transport, clear state, and leave the Codex task open.",
         ),
     ):
         ctx.register_tool(
